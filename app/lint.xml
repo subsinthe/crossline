@@ -1,0 +1,6 @@
+<lint>
+    <issue id="InvalidPackage">
+        <ignore path="**/netty-resolver-dns*.jar"/>
+        <ignore path="**/vertx-core*.jar"/>
+    </issue>
+</lint>

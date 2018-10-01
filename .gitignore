@@ -1,0 +1,6 @@
+/app/build
+/build
+/local.properties
+.gradle
+*.iml
+.vimrc
