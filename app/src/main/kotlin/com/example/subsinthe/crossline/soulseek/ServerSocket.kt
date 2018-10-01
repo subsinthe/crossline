@@ -131,10 +131,10 @@ private class DataInterpreter(private val output: SendChannel<DownstreamMessage>
                     state.storage.order(ByteOrder.LITTLE_ENDIAN)
                     try {
                         output.send(Deserializer(state.storage).finish())
-                } catch (throwable: Throwable) {
-                    LOG.warning("Failed to deserialize message: $throwable")
-                    throwable.printStackTrace()
-                }
+                    } catch (throwable: Throwable) {
+                        LOG.warning("Failed to deserialize message: $throwable")
+                        throwable.printStackTrace()
+                    }
                     return State.Vanilla()
                 }
             }
