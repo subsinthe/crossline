@@ -17,21 +17,8 @@ class Serializer(request: Request) {
     init {
         if (buffer.array().isEmpty())
             throw IllegalArgumentException("Message '${request::class.simpleName}' stream is empty")
-        request.stream.forEach { serialize(it) }
+        request.stream.forEach { it.serialize(buffer) }
     }
 
-    fun finish(): ByteBuffer {
-        return buffer
-    }
-
-    private fun serialize(value: DataType) {
-        when (value) {
-            is Int8Data -> buffer.putChar(value.value)
-            is Int32Data -> buffer.putInt(value.value)
-            is StringData -> {
-                buffer.putInt(value.value.size)
-                buffer.put(value.value)
-            }
-        }
-    }
+    fun finish() = buffer
 }
