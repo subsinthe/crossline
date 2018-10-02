@@ -28,11 +28,12 @@ private fun ByteBuffer.getString(): String {
 private val DESERIALIZER_ROUTINES = hashMapOf<Int, (ByteBuffer) -> Response>(
     1 to { buffer ->
         val isSuccess = (buffer.get().compareTo(1) == 0)
-        if (isSuccess)
-            Response.LoginSuccessful(
-                buffer.getString(), buffer.int
-            ).also { val ignored = buffer.get() }
-        else
-            Response.LoginFailed(buffer.getString())
+        if (isSuccess) {
+            val greet = buffer.getString()
+            val ip = buffer.int
+            val ignored = buffer.get()
+            Response.LoginSuccessful(greet, ip)
+        } else
+            Response.LoginFailed(reason = buffer.getString())
     }
 )
