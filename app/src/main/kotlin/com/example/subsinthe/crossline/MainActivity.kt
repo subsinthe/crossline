@@ -42,10 +42,8 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-class MainActivityUI(
-    private var uiScope: CoroutineScope,
-    private val ioScope: CoroutineScope,
-) : AnkoComponent<MainActivity> {
+class MainActivityUI(private var uiScope: CoroutineScope, private val ioScope: CoroutineScope)
+        : AnkoComponent<MainActivity> {
     private val customStyle = { v: Any ->
         when (v) {
             is Button -> v.textSize = 26f

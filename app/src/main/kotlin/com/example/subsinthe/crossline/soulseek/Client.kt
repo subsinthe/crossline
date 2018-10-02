@@ -1,8 +1,5 @@
 package com.example.subsinthe.crossline.soulseek
 
-import com.example.subsinthe.crossline.soulseek.downstreamMessages.LoginFailed
-import com.example.subsinthe.crossline.soulseek.downstreamMessages.LoginSuccessful
-import com.example.subsinthe.crossline.soulseek.upstreamMessages.Login
 import com.example.subsinthe.crossline.util.loggerFor
 import kotlinx.coroutines.experimental.CoroutineScope
 import org.apache.commons.codec.binary.Hex
@@ -32,7 +29,7 @@ class Client private constructor(private val serverSocket: ServerSocket) : Close
 
     suspend fun login(credentials: Credentials) {
         serverSocket.write(
-            Login(
+            Request.Login(
                 username = credentials.username,
                 password = credentials.password,
                 digest = credentials.makeMd5(),
@@ -43,8 +40,10 @@ class Client private constructor(private val serverSocket: ServerSocket) : Close
 
         val response = serverSocket.read()
         when (response) {
-            is LoginSuccessful -> LOG.info("Successfully logged in. Server says ${response.greet}")
-            is LoginFailed -> throw LoginFailedException(response.reason)
+            is Response.LoginSuccessful -> {
+                LOG.info("Successfully logged in. Server says ${response.greet}")
+            }
+            is Response.LoginFailed -> throw LoginFailedException(response.reason)
         }
     }
 }

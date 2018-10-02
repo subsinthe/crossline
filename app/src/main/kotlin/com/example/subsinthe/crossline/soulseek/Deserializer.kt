@@ -1,4 +1,4 @@
-package com.example.subsinthe.crossline.soulseek.downstreamMessages
+package com.example.subsinthe.crossline.soulseek
 
 import java.nio.ByteBuffer
 
@@ -25,12 +25,14 @@ private fun ByteBuffer.getString(): String {
     return String(storage)
 }
 
-private val DESERIALIZER_ROUTINES = hashMapOf<Int, (ByteBuffer) -> Message>(
+private val DESERIALIZER_ROUTINES = hashMapOf<Int, (ByteBuffer) -> Response>(
     1 to { buffer ->
         val isSuccess = (buffer.get().compareTo(1) == 0)
         if (isSuccess)
-            LoginSuccessful(buffer.getString(), buffer.int).also { val ignored = buffer.get() }
+            Response.LoginSuccessful(
+                buffer.getString(), buffer.int
+            ).also { val ignored = buffer.get() }
         else
-            LoginFailed(buffer.getString())
+            Response.LoginFailed(buffer.getString())
     }
 )

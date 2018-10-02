@@ -1,27 +1,23 @@
-package com.example.subsinthe.crossline.soulseek.upstreamMessages
+package com.example.subsinthe.crossline.soulseek
 
-import com.example.subsinthe.crossline.soulseek.DataType
-import com.example.subsinthe.crossline.soulseek.Int32Data
-import com.example.subsinthe.crossline.soulseek.Int8Data
-import com.example.subsinthe.crossline.soulseek.StringData
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 private const val MESSAGE_HEADER_LENGTH = 2 * Integer.BYTES
 
-class Serializer(message: Message) {
+class Serializer(request: Request) {
     private val buffer =
-        ByteBuffer.allocate(message.stream.fold(MESSAGE_HEADER_LENGTH) {
+        ByteBuffer.allocate(request.stream.fold(MESSAGE_HEADER_LENGTH) {
                 sum, data -> sum + data.size
             })
             .also { it.order(ByteOrder.LITTLE_ENDIAN) }
             .also { it.putInt(it.array().size - Integer.BYTES) }
-            .also { it.putInt(message.code) }
+            .also { it.putInt(request.code) }
 
     init {
         if (buffer.array().isEmpty())
-            throw IllegalArgumentException("Message '${message::class.simpleName}' stream is empty")
-        message.stream.forEach { serialize(it) }
+            throw IllegalArgumentException("Message '${request::class.simpleName}' stream is empty")
+        request.stream.forEach { serialize(it) }
     }
 
     fun finish(): ByteBuffer {

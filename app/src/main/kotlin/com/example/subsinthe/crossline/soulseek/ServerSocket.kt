@@ -1,7 +1,5 @@
 package com.example.subsinthe.crossline.soulseek
 
-import com.example.subsinthe.crossline.soulseek.downstreamMessages.Deserializer
-import com.example.subsinthe.crossline.soulseek.upstreamMessages.Serializer
 import com.example.subsinthe.crossline.util.loggerFor
 import com.example.subsinthe.crossline.util.transferTo
 import kotlinx.coroutines.experimental.CoroutineScope
@@ -13,8 +11,6 @@ import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.logging.Logger
-import com.example.subsinthe.crossline.soulseek.downstreamMessages.Message as DownstreamMessage
-import com.example.subsinthe.crossline.soulseek.upstreamMessages.Message as UpstreamMessage
 
 private class ConnectionClosedException : Exception("Connection closed")
 
@@ -26,7 +22,7 @@ class ServerSocket(
     bufferSize: Int
 ) :
     Closeable {
-    private val readQueue = Channel<DownstreamMessage>()
+    private val readQueue = Channel<Response>()
     private val reader = ioScope.launch { readerFunc(ioScope, bufferSize) }
 
     override fun close() {
@@ -34,7 +30,7 @@ class ServerSocket(
         socket.close()
     }
 
-    suspend fun write(message: UpstreamMessage) = socket.write(Serializer(message).finish())
+    suspend fun write(message: Request) = socket.write(Serializer(message).finish())
 
     suspend fun read() = readQueue.receive()
 
@@ -78,7 +74,7 @@ class ServerSocket(
     }
 }
 
-private class DataInterpreter(private val output: SendChannel<DownstreamMessage>) {
+private class DataInterpreter(private val output: SendChannel<Response>) {
     private var state: State = State.Vanilla()
 
     private sealed class State {
