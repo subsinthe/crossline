@@ -34,24 +34,17 @@ private class IoScope : CoroutineScope {
 class MainActivity : AppCompatActivity() {
     private val uiScope = UiScope()
     private val ioScope = IoScope()
-    private val dnsResolver = DnsResolver()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        MainActivityUI(uiScope, ioScope, dnsResolver).setContentView(this)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        dnsResolver.close()
+        MainActivityUI(uiScope, ioScope).setContentView(this)
     }
 }
 
 class MainActivityUI(
     private var uiScope: CoroutineScope,
     private val ioScope: CoroutineScope,
-    private val dnsResolver: DnsResolver
 ) : AnkoComponent<MainActivity> {
     private val customStyle = { v: Any ->
         when (v) {
