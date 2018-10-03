@@ -24,7 +24,7 @@ class VertxSocketFactory(override val coroutineScope: CoroutineScope) : ISocketF
         val netClient = vertxContext.createNetClient(NetClientOptions(connectTimeout = 10000))
         val socket: NetSocket = awaitResult { netClient.connect(port, host, it) }
         try {
-            return VertxStreamingSocket(coroutineScope, socket)
+            return VertxStreamSocket(coroutineScope, socket)
         } catch (throwable: Throwable) {
             socket.close()
             throw throwable
@@ -32,7 +32,7 @@ class VertxSocketFactory(override val coroutineScope: CoroutineScope) : ISocketF
     }
 }
 
-private class VertxStreamingSocket(
+private class VertxStreamSocket(
     coroutineScope: CoroutineScope,
     private val wrapped: NetSocket
 ) : IStreamSocket {
