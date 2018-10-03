@@ -1,7 +1,6 @@
 package com.example.subsinthe.crossline.soulseek
 
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 sealed class Request {
     abstract val code: Int
@@ -13,7 +12,7 @@ sealed class Request {
 
     fun serialize(): ByteBuffer {
         val bufferSize = stream.fold(REQUEST_HEADER_LENGTH) { sum, data -> sum + data.size }
-        val buffer = ByteBuffer.allocate(bufferSize).also { it.order(ByteOrder.LITTLE_ENDIAN) }
+        val buffer = ByteBuffer.allocate(bufferSize).also { it.order(DataType.BYTE_ORDER) }
 
         DataType.build(bufferSize - DataType.I32.SIZE).serialize(buffer)
         DataType.build(code).serialize(buffer)

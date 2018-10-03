@@ -1,6 +1,7 @@
 package com.example.subsinthe.crossline.soulseek
 
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 sealed class DataType {
     abstract val size: Int
@@ -50,6 +51,8 @@ sealed class DataType {
     }
 
     companion object {
+        val BYTE_ORDER = ByteOrder.LITTLE_ENDIAN
+
         fun build(value: Byte) = DataType.I8(value)
         fun build(value: Int) = DataType.I32(value)
         fun build(value: ByteArray) = DataType.Str(value)

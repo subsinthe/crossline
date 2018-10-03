@@ -9,7 +9,6 @@ import kotlinx.coroutines.experimental.isActive
 import kotlinx.coroutines.experimental.launch
 import java.io.Closeable
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.logging.Logger
 
 private class ConnectionClosedException : Exception("Connection closed")
@@ -95,7 +94,7 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
     }
 
     suspend fun consume(buffer: ByteBuffer) {
-        buffer.order(ByteOrder.LITTLE_ENDIAN)
+        buffer.order(DataType.BYTE_ORDER)
         while (buffer.hasRemaining()) {
             state = doConsume(state, buffer)
         }
@@ -116,7 +115,7 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
                 buffer.transferTo(state.storage)
                 if (!state.storage.hasRemaining()) {
                     state.storage.rewind()
-                    state.storage.order(ByteOrder.LITTLE_ENDIAN)
+                    state.storage.order(DataType.BYTE_ORDER)
                     return State.CollectingMessage(DataType.I32.deserialize(state.storage))
                 }
             }
@@ -124,7 +123,7 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
                 buffer.transferTo(state.storage)
                 if (!state.storage.hasRemaining()) {
                     state.storage.rewind()
-                    state.storage.order(ByteOrder.LITTLE_ENDIAN)
+                    state.storage.order(DataType.BYTE_ORDER)
                     try {
                         output.send(Response.deserialize(state.storage))
                     } catch (throwable: Throwable) {
