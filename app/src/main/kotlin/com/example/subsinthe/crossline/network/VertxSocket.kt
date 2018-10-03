@@ -1,4 +1,4 @@
-package com.example.subsinthe.crossline.soulseek
+package com.example.subsinthe.crossline.network
 
 import com.example.subsinthe.crossline.util.transferTo
 import io.vertx.core.Vertx
@@ -11,12 +11,33 @@ import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.experimental.channels.actor
 import kotlinx.coroutines.experimental.channels.consumeEach
 import kotlinx.coroutines.experimental.channels.sendBlocking
-import java.io.Closeable
 import java.nio.ByteBuffer
 
-class Socket(ioScope: CoroutineScope, private val wrapped: NetSocket, private val vs: Vertx) : Closeable {
+class VertxSocketFactory(override val coroutineScope: CoroutineScope) : ISocketFactory {
+    private val vertxContext = Vertx.vertx().also {
+        System.setProperty("vertx.disableFileCPResolving", "true")
+    }
+
+    override fun close() = vertxContext.close()
+
+    override suspend fun createTcpConnection(host: String, port: Int): IStreamSocket {
+        val netClient = vertxContext.createNetClient(NetClientOptions(connectTimeout = 10000))
+        val socket: NetSocket = awaitResult { netClient.connect(port, host, it) }
+        try {
+            return VertxStreamingSocket(coroutineScope, socket)
+        } catch (throwable: Throwable) {
+            socket.close()
+            throw throwable
+        }
+    }
+}
+
+private class VertxStreamingSocket(
+    coroutineScope: CoroutineScope,
+    private val wrapped: NetSocket
+) : IStreamSocket {
     private val readQueue = Channel<ByteBuffer>()
-    private val writer = ioScope.actor<ByteBuffer> {
+    private val writer = coroutineScope.actor<ByteBuffer> {
         consumeEach { buffer ->
             wrapped.write(Buffer.buffer(buffer.array()))
         }
@@ -34,22 +55,9 @@ class Socket(ioScope: CoroutineScope, private val wrapped: NetSocket, private va
         }
     }
 
-    companion object {
-        suspend fun build(
-            ioScope: CoroutineScope,
-            host: String,
-            port: Int
-        ): Socket {
-            System.setProperty("vertx.disableFileCPResolving", "true")
-            val vx = Vertx.vertx()
-            val netClient = vx.createNetClient(NetClientOptions(connectTimeout = 10000))
-            return Socket(ioScope, awaitResult { netClient.connect(port, host, it) }, vx)
-        }
-    }
-
     override fun close() = wrapped.close()
 
-    suspend fun read(buffer: ByteBuffer): Int {
+    override suspend fun read(buffer: ByteBuffer): Int {
         var bytesRead = 0
 
         val leftover = readBufferLeftover
@@ -70,7 +78,7 @@ class Socket(ioScope: CoroutineScope, private val wrapped: NetSocket, private va
         return bytesRead
     }
 
-    suspend fun write(buffer: ByteBuffer) {
+    override suspend fun write(buffer: ByteBuffer) {
         writer.send(buffer)
         buffer.flip()
     }

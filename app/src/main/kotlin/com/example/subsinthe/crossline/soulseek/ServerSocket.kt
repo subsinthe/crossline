@@ -1,5 +1,6 @@
 package com.example.subsinthe.crossline.soulseek
 
+import com.example.subsinthe.crossline.network.IStreamSocket
 import com.example.subsinthe.crossline.util.loggerFor
 import com.example.subsinthe.crossline.util.transferTo
 import kotlinx.coroutines.experimental.CoroutineScope
@@ -17,7 +18,7 @@ private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
 
 class ServerSocket(
     private val ioScope: CoroutineScope,
-    private val socket: Socket,
+    private val socket: IStreamSocket,
     bufferSize: Int
 ) : Closeable {
     private val readQueue = Channel<Response>()
@@ -32,14 +33,7 @@ class ServerSocket(
 
     suspend fun read() = readQueue.receive()
 
-    companion object {
-        suspend fun build(
-            ioScope: CoroutineScope,
-            host: String,
-            port: Int,
-            bufferSize: Int
-        ) = ServerSocket(ioScope, Socket.build(ioScope, host, port), bufferSize)
-
+    private companion object {
         private val LOG: Logger = loggerFor<ServerSocket>()
     }
 

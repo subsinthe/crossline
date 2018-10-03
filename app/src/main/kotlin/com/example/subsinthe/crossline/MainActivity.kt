@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.widget.Button
 import android.widget.EditText
+import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.soulseek.Credentials
 import com.example.subsinthe.crossline.util.loggerFor
 import kotlinx.coroutines.experimental.CoroutineScope
@@ -21,6 +22,7 @@ import org.jetbrains.anko.setContentView
 import org.jetbrains.anko.toast
 import org.jetbrains.anko.verticalLayout
 import kotlin.coroutines.experimental.CoroutineContext
+import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
 import com.example.subsinthe.crossline.soulseek.Client as SoulseekClient
 
 private class UiScope : CoroutineScope {
@@ -34,16 +36,26 @@ private class IoScope : CoroutineScope {
 class MainActivity : AppCompatActivity() {
     private val uiScope = UiScope()
     private val ioScope = IoScope()
+    private val socketFactory = SocketFactory(ioScope)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        MainActivityUI(uiScope, ioScope).setContentView(this)
+        MainActivityUI(uiScope, ioScope, socketFactory).setContentView(this)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
+        socketFactory.close()
     }
 }
 
-class MainActivityUI(private var uiScope: CoroutineScope, private val ioScope: CoroutineScope)
-        : AnkoComponent<MainActivity> {
+class MainActivityUI(
+    private var uiScope: CoroutineScope,
+    private val ioScope: CoroutineScope,
+    private val socketFactory: ISocketFactory
+) : AnkoComponent<MainActivity> {
     private val customStyle = { v: Any ->
         when (v) {
             is Button -> v.textSize = 26f
@@ -58,7 +70,7 @@ class MainActivityUI(private var uiScope: CoroutineScope, private val ioScope: C
             button("Log in") {
                 onClick {
                     try {
-                        val client = SoulseekClient.build(ioScope)
+                        val client = SoulseekClient.build(socketFactory)
                         client.login(
                             Credentials(
                                 username = "username",

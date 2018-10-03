@@ -1,7 +1,7 @@
 package com.example.subsinthe.crossline.soulseek
 
+import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.util.loggerFor
-import kotlinx.coroutines.experimental.CoroutineScope
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.codec.digest.DigestUtils
 import java.io.Closeable
@@ -14,15 +14,14 @@ data class Credentials(val username: String, val password: String) {
 }
 
 class Client private constructor(private val serverSocket: ServerSocket) : Closeable {
-
     companion object {
         private val LOG: Logger = loggerFor<Client>()
 
         suspend fun build(
-            ioScope: CoroutineScope,
+            socketFactory: ISocketFactory,
             host: String = "server.slsknet.org",
             port: Int = 2242
-        ) = Client(ServerSocket.build(ioScope, host, port, 1 * 1024 * 1024))
+        ) = Client(ServerSocket(socketFactory.coroutineScope, socketFactory.createTcpConnection(host, port), 1 * 1024 * 1024))
     }
 
     override fun close() = serverSocket.close()
