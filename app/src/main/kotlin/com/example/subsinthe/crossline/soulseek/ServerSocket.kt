@@ -19,8 +19,7 @@ class ServerSocket(
     private val ioScope: CoroutineScope,
     private val socket: Socket,
     bufferSize: Int
-) :
-    Closeable {
+) : Closeable {
     private val readQueue = Channel<Response>()
     private val reader = ioScope.launch { readerFunc(ioScope, bufferSize) }
 
@@ -84,9 +83,7 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
         }
 
         class CollectingMessage(messageLength: Int) : State() {
-            val storage: ByteBuffer = ByteBuffer.allocate(messageLength)
-
-            init {
+            val storage: ByteBuffer = ByteBuffer.allocate(messageLength).also {
                 if (messageLength == 0)
                     throw IllegalArgumentException("Unexpected message length: $messageLength")
             }
@@ -115,7 +112,6 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
                 buffer.transferTo(state.storage)
                 if (!state.storage.hasRemaining()) {
                     state.storage.rewind()
-                    state.storage.order(DataType.BYTE_ORDER)
                     return State.CollectingMessage(DataType.I32.deserialize(state.storage))
                 }
             }
@@ -123,7 +119,6 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
                 buffer.transferTo(state.storage)
                 if (!state.storage.hasRemaining()) {
                     state.storage.rewind()
-                    state.storage.order(DataType.BYTE_ORDER)
                     try {
                         output.send(Response.deserialize(state.storage))
                     } catch (throwable: Throwable) {

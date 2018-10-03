@@ -10,6 +10,8 @@ sealed class Response {
             if (buffer.remaining() < MESSAGE_TYPE_LENGTH)
                 throw IllegalArgumentException("Message length is less than message type length")
 
+            buffer.order(DataType.BYTE_ORDER)
+
             val messageCode = DataType.I32.deserialize(buffer)
             val deserializer = DESERIALIZER_ROUTINES.get(messageCode)
                 ?: throw IllegalArgumentException("Unexpected message code $messageCode")
