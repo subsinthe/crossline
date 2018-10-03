@@ -4,18 +4,15 @@ import java.nio.ByteBuffer
 
 private const val MESSAGE_TYPE_LENGTH = Integer.BYTES
 
-class Deserializer(val buffer: ByteBuffer) {
-    init {
-        if (buffer.remaining() < MESSAGE_TYPE_LENGTH)
-            throw IllegalArgumentException("Message length is less than message type length")
-    }
+fun deserialize(buffer: ByteBuffer): Response {
+    if (buffer.remaining() < MESSAGE_TYPE_LENGTH)
+        throw IllegalArgumentException("Message length is less than message type length")
 
-    private val deserializer = buffer.int.let {
-        DESERIALIZER_ROUTINES.get(it)
-            ?: throw IllegalArgumentException("Unexpected message code $it")
-    }
+    val messageCode = buffer.int
+    val deserializer = DESERIALIZER_ROUTINES.get(messageCode)
+            ?: throw IllegalArgumentException("Unexpected message code $messageCode")
 
-    fun finish() = deserializer(buffer)
+    return deserializer(buffer)
 }
 
 private fun ByteBuffer.getString(): String {

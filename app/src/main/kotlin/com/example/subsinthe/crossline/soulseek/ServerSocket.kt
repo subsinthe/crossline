@@ -30,7 +30,7 @@ class ServerSocket(
         socket.close()
     }
 
-    suspend fun write(message: Request) = socket.write(Serializer(message).finish())
+    suspend fun write(request: Request) = socket.write(serialize(request))
 
     suspend fun read() = readQueue.receive()
 
@@ -126,7 +126,7 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
                     state.storage.rewind()
                     state.storage.order(ByteOrder.LITTLE_ENDIAN)
                     try {
-                        output.send(Deserializer(state.storage).finish())
+                        output.send(deserialize(state.storage))
                     } catch (throwable: Throwable) {
                         LOG.warning("Failed to deserialize message: $throwable")
                         throwable.printStackTrace()
