@@ -14,7 +14,7 @@ import java.util.logging.Logger
 
 private class ConnectionClosedException : Exception("Connection closed")
 
-private const val MESSAGE_LENGTH_LENGTH = Integer.BYTES
+private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
 
 class ServerSocket(
     private val ioScope: CoroutineScope,
@@ -30,7 +30,7 @@ class ServerSocket(
         socket.close()
     }
 
-    suspend fun write(request: Request) = socket.write(serialize(request))
+    suspend fun write(request: Request) = socket.write(request.serialize())
 
     suspend fun read() = readQueue.receive()
 
@@ -110,14 +110,14 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
             is State.Vanilla -> {
                 if (buffer.remaining() < MESSAGE_LENGTH_LENGTH)
                     return State.CollectingMessageLength()
-                return State.CollectingMessage(buffer.int)
+                return State.CollectingMessage(DataType.I32.deserialize(buffer))
             }
             is State.CollectingMessageLength -> {
                 buffer.transferTo(state.storage)
                 if (!state.storage.hasRemaining()) {
                     state.storage.rewind()
                     state.storage.order(ByteOrder.LITTLE_ENDIAN)
-                    return State.CollectingMessage(state.storage.int)
+                    return State.CollectingMessage(DataType.I32.deserialize(state.storage))
                 }
             }
             is State.CollectingMessage -> {
@@ -126,7 +126,7 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
                     state.storage.rewind()
                     state.storage.order(ByteOrder.LITTLE_ENDIAN)
                     try {
-                        output.send(deserialize(state.storage))
+                        output.send(Response.deserialize(state.storage))
                     } catch (throwable: Throwable) {
                         LOG.warning("Failed to deserialize message: $throwable")
                         throwable.printStackTrace()
