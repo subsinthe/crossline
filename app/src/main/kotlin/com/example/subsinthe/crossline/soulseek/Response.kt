@@ -2,6 +2,8 @@ package com.example.subsinthe.crossline.soulseek
 
 import java.nio.ByteBuffer
 
+class UnexpectedMessageCodeException(code: Int) : Exception("Unexpected message code $code")
+
 sealed class Response {
     companion object {
         private const val MESSAGE_TYPE_LENGTH = DataType.I32.SIZE
@@ -14,7 +16,7 @@ sealed class Response {
 
             val messageCode = DataType.I32.deserialize(buffer)
             val deserializer = DESERIALIZER_ROUTINES.get(messageCode)
-                ?: throw IllegalArgumentException("Unexpected message code $messageCode")
+                ?: throw UnexpectedMessageCodeException(messageCode)
 
             return deserializer(buffer)
         }
