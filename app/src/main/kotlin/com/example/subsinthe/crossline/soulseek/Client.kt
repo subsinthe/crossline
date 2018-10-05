@@ -24,7 +24,7 @@ class Client private constructor(private val serverSocket: ServerSocket) : Close
         ) = Client(
             ServerSocket(
                 socketFactory.coroutineScope,
-                hsocketFactory.createTcpConnection(host, port),
+                socketFactory.createTcpConnection(host, port),
                 1 * 1024 * 1024
             )
         )
