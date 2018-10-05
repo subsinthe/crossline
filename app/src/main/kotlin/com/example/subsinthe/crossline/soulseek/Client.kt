@@ -21,7 +21,13 @@ class Client private constructor(private val serverSocket: ServerSocket) : Close
             socketFactory: ISocketFactory,
             host: String = "server.slsknet.org",
             port: Int = 2242
-        ) = Client(ServerSocket(socketFactory.coroutineScope, socketFactory.createTcpConnection(host, port), 1 * 1024 * 1024))
+        ) = Client(
+            ServerSocket(
+                socketFactory.coroutineScope,
+                hsocketFactory.createTcpConnection(host, port),
+                1 * 1024 * 1024
+            )
+        )
     }
 
     override fun close() = serverSocket.close()
