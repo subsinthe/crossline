@@ -77,7 +77,6 @@ class MainActivityUI(
                                 password = "password"
                             )
                         )
-                        LOG.info("Successfully logged in")
                         toast("Successfully logged in")
                     } catch (ex: Throwable) {
                         toast("Error logging in: $ex")

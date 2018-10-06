@@ -29,6 +29,8 @@ class Client private constructor(private val connection: ServerConnection) : Clo
     override fun close() = connection.close()
 
     suspend fun login(credentials: Credentials) {
+        LOG.info("login()")
+
         val response = connection.make_request(
             Request.Login(
                 username = credentials.username,
@@ -42,7 +44,10 @@ class Client private constructor(private val connection: ServerConnection) : Clo
             is Response.LoginSuccessful -> {
                 LOG.info("Successfully logged in. Server says ${response.greet}")
             }
-            is Response.LoginFailed -> throw LoginFailedException(response.reason)
+            is Response.LoginFailed -> {
+                LOG.warning("Failed to log in: ${response.reason}")
+                throw LoginFailedException(response.reason)
+            }
         }
     }
 }
