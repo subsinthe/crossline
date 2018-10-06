@@ -46,7 +46,7 @@ class ServerConnection(
         output.useOutput {
             while (scope.isActive) {
                 val buffer = socket.read()
-                LOG.fine("Read ${buffer.remaining()}")
+                LOG.fine("[Reader] Read ${buffer.remaining()}")
                 output.send(buffer)
             }
         }
@@ -65,7 +65,7 @@ class ServerConnection(
                 val messageLength = DataType.I32.deserialize(messageLengthData.product)
                 if (messageLength == 0)
                     throw IllegalArgumentException("Unexpected message length: $messageLength")
-                LOG.fine("New message length: $messageLength")
+                LOG.fine("[Interpreter]: New message length: $messageLength")
 
                 val messageData = FixedSizeReader.read(buffer, input, messageLength)
                 buffer = messageData.leftover
@@ -73,7 +73,7 @@ class ServerConnection(
                 try {
                     message = Response.deserialize(messageData.product)
                 } catch (ex: Throwable) {
-                    LOG.warning("Failed to deserialize reponse: $ex")
+                    LOG.warning("[Interpreter] Failed to deserialize reponse: $ex")
                 }
                 message?.let { output.send(it) }
             }
@@ -88,7 +88,7 @@ class ServerConnection(
         notifier.useOutput {
             output.useOutput {
                 input.consumeEach {
-                    LOG.fine("New response: $it")
+                    LOG.fine("[Dispatcher] New response: $it")
                     (if (it.isNotification) notifier else output).send(it)
                 }
             }
@@ -105,8 +105,12 @@ private class FixedSizeReader {
             input: ReceiveChannel<ByteBuffer>,
             requested: Int
         ): Data {
-            if (given.remaining() >= requested)
+            if (given.remaining() >= requested) {
+                LOG.fine("Given buffer is suitable")
                 return Data(given, given)
+            }
+
+            LOG.fine("Given buffer is too small. Falling back to allocation")
 
             val storage = ByteBuffer.allocate(requested)
             var source = given
@@ -117,7 +121,10 @@ private class FixedSizeReader {
                     return Data(storage, source)
                 }
                 source = input.receive()
+                LOG.fine("Read ${source.remaining()}")
             }
         }
+
+        val LOG = loggerFor<FixedSizeReader>()
     }
 }
