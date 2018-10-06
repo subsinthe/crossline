@@ -12,7 +12,7 @@ sealed class Response {
 
         fun deserialize(buffer: ByteBuffer): Response {
             if (buffer.remaining() < MESSAGE_TYPE_LENGTH)
-                throw IllegalArgumentException("Message length is less than message type length")
+                throw IllegalArgumentException("Message length is less than message code length")
 
             buffer.order(DataType.BYTE_ORDER)
 
