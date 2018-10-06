@@ -16,7 +16,7 @@ private class ConnectionClosedException : Exception("Connection closed")
 
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
 
-class ServerSocket(
+class ServerConnection(
     private val ioScope: CoroutineScope,
     private val socket: IStreamSocket,
     bufferSize: Int
@@ -34,7 +34,7 @@ class ServerSocket(
     suspend fun read() = readQueue.receive()
 
     private companion object {
-        private val LOG: Logger = loggerFor<ServerSocket>()
+        private val LOG: Logger = loggerFor<ServerConnection>()
     }
 
     private suspend fun readerFunc(scope: CoroutineScope, bufferSize: Int) {

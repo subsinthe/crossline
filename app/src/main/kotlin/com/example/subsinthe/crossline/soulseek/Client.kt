@@ -13,7 +13,7 @@ data class Credentials(val username: String, val password: String) {
     fun makeMd5(): String = String(Hex.encodeHex(DigestUtils.md5("$username$password")))
 }
 
-class Client private constructor(private val serverSocket: ServerSocket) : Closeable {
+class Client private constructor(private val serverSocket: ServerConnection) : Closeable {
     companion object {
         private val LOG: Logger = loggerFor<Client>()
 
@@ -22,7 +22,7 @@ class Client private constructor(private val serverSocket: ServerSocket) : Close
             host: String = "server.slsknet.org",
             port: Int = 2242
         ) = Client(
-            ServerSocket(
+            ServerConnection(
                 socketFactory.coroutineScope,
                 socketFactory.createTcpConnection(host, port),
                 1 * 1024 * 1024
