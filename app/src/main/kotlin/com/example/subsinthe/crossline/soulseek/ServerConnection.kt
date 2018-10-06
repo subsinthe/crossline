@@ -96,7 +96,9 @@ class ServerConnection(
     ) {
         notifier.useOutput {
             output.useOutput {
-                input.consumeEach { (if (it.isNotification) notifier else output).send(it) }
+                input.consumeEach {
+                    (if (it.isNotification) notifier else output).send(it)
+                }
             }
         }
     }
