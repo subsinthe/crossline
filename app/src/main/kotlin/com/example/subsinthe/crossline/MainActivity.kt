@@ -6,7 +6,9 @@ import android.widget.Button
 import android.widget.EditText
 import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.soulseek.Credentials
+import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.loggerFor
+import kotlinx.coroutines.experimental.CoroutineExceptionHandler
 import kotlinx.coroutines.experimental.CoroutineScope
 import kotlinx.coroutines.experimental.Dispatchers
 import kotlinx.coroutines.experimental.IO
@@ -25,12 +27,23 @@ import kotlin.coroutines.experimental.CoroutineContext
 import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
 import com.example.subsinthe.crossline.soulseek.Client as SoulseekClient
 
+private class DefaultExceptionHandler {
+    companion object {
+        fun get() = CoroutineExceptionHandler { _: CoroutineContext, ex: Throwable ->
+            val stackTrace = ex.stackTrace.fold("") { trace, frame -> "$trace\n$frame" }
+            LOG.severe("Uncaught exception: $ex:$stackTrace")
+        }
+
+        private val LOG = loggerFor<DefaultExceptionHandler>()
+    }
+}
+
 private class UiScope : CoroutineScope {
-    override val coroutineContext: CoroutineContext = Dispatchers.Main
+    override val coroutineContext: CoroutineContext = Dispatchers.Main + DefaultExceptionHandler.get()
 }
 
 private class IoScope : CoroutineScope {
-    override val coroutineContext: CoroutineContext = Dispatchers.IO
+    override val coroutineContext: CoroutineContext = Dispatchers.IO + DefaultExceptionHandler.get()
 }
 
 class MainActivity : AppCompatActivity() {
@@ -41,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        AndroidLoggingHandler.reset(AndroidLoggingHandler())
         MainActivityUI(uiScope, ioScope, socketFactory).setContentView(this)
     }
 
@@ -70,14 +84,14 @@ class MainActivityUI(
             button("Log in") {
                 onClick {
                     try {
-                        val client = SoulseekClient.build(socketFactory)
-                        client.login(
-                            Credentials(
-                                username = "username",
-                                password = "password"
+                        SoulseekClient.build(uiScope, socketFactory).use { client ->
+                            client.login(
+                                Credentials(
+                                    username = "username",
+                                    password = "password"
+                                )
                             )
-                        )
-                        LOG.info("Successfully logged in")
+                        }
                         toast("Successfully logged in")
                     } catch (ex: Throwable) {
                         toast("Error logging in: $ex")

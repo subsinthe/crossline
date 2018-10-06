@@ -1,126 +1,130 @@
 package com.example.subsinthe.crossline.soulseek
 
 import com.example.subsinthe.crossline.network.IStreamSocket
+import com.example.subsinthe.crossline.util.Multicast
 import com.example.subsinthe.crossline.util.loggerFor
 import com.example.subsinthe.crossline.util.transferTo
+import com.example.subsinthe.crossline.util.useOutput
 import kotlinx.coroutines.experimental.CoroutineScope
 import kotlinx.coroutines.experimental.channels.Channel
+import kotlinx.coroutines.experimental.channels.ReceiveChannel
 import kotlinx.coroutines.experimental.channels.SendChannel
+import kotlinx.coroutines.experimental.channels.actor
+import kotlinx.coroutines.experimental.channels.consumeEach
 import kotlinx.coroutines.experimental.isActive
 import kotlinx.coroutines.experimental.launch
 import java.io.Closeable
 import java.nio.ByteBuffer
-import java.util.logging.Logger
-
-private class ConnectionClosedException : Exception("Connection closed")
 
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
+private const val RESPONSE_QUEUE_SIZE = 64
 
 class ServerConnection(
-    private val ioScope: CoroutineScope,
-    private val socket: IStreamSocket,
-    bufferSize: Int
+    private val scope: CoroutineScope,
+    private val socket: IStreamSocket
 ) : Closeable {
-    private val readQueue = Channel<Response>()
-    private val reader = ioScope.launch { readerFunc(ioScope, bufferSize) }
+    private val readQueue = Channel<Response>(RESPONSE_QUEUE_SIZE)
+    private val notifier = Multicast<Response>(scope, RESPONSE_QUEUE_SIZE)
+    private val dispatcher = scope.actor<Response> {
+        dispatch(channel, readQueue, notifier.channel)
+    }
+    private val interpreter = scope.actor<ByteBuffer> { interpret(channel, dispatcher) }
+    private val reader = scope.launch { read(scope, interpreter) }
 
-    override fun close() {
-        reader.cancel()
-        socket.close()
+    suspend fun make_request(request: Request): Response {
+        socket.write(request.serialize())
+        return readQueue.receive()
     }
 
-    suspend fun write(request: Request) = socket.write(request.serialize())
+    suspend fun subscrbe(handler: suspend (Response) -> Unit) = notifier.subscribe(handler)
 
-    suspend fun read() = readQueue.receive()
+    override fun close() = socket.close()
 
-    private companion object {
-        private val LOG: Logger = loggerFor<ServerConnection>()
-    }
+    private companion object { val LOG = loggerFor<ServerConnection>() }
 
-    private suspend fun readerFunc(scope: CoroutineScope, bufferSize: Int) {
-        var closeException: Throwable? = null
-        val buffer = ByteBuffer.allocate(maxOf(bufferSize, MESSAGE_LENGTH_LENGTH))
-        val interpreter = DataInterpreter(readQueue)
-        try {
+    private suspend fun read(scope: CoroutineScope, output: SendChannel<ByteBuffer>) {
+        output.useOutput {
             while (scope.isActive) {
-                val bytesRead = socket.read(buffer)
-                if (bytesRead == -1) {
-                    closeException = ConnectionClosedException()
-                    break
-                }
-                buffer.limit(bytesRead)
-                buffer.rewind()
-                try {
-                    interpreter.consume(buffer)
-                } catch (ex: Throwable) {
-                    LOG.warning("Failed to consume read data: $ex")
-                }
-                buffer.clear()
+                val buffer = socket.read()
+                LOG.fine("[Reader] Read ${buffer.remaining()}")
+                output.send(buffer)
             }
-        } catch (throwable: Throwable) {
-            closeException = throwable
-        } finally {
-            readQueue.close(closeException)
+        }
+    }
+
+    private suspend fun interpret(
+        input: ReceiveChannel<ByteBuffer>,
+        output: SendChannel<Response>
+    ) {
+        output.useOutput {
+            var buffer = input.receive()
+            while (true) {
+                val messageLengthData = FixedSizeReader.read(buffer, input, MESSAGE_LENGTH_LENGTH)
+                buffer = messageLengthData.leftover
+                messageLengthData.product.order(DataType.BYTE_ORDER)
+                val messageLength = DataType.I32.deserialize(messageLengthData.product)
+                if (messageLength == 0)
+                    throw IllegalArgumentException("Unexpected message length: $messageLength")
+                LOG.fine("[Interpreter]: New message length: $messageLength")
+
+                val messageData = FixedSizeReader.read(buffer, input, messageLength)
+                buffer = messageData.leftover
+                var message: Response? = null
+                try {
+                    message = Response.deserialize(messageData.product)
+                } catch (ex: Throwable) {
+                    LOG.warning("[Interpreter] Failed to deserialize reponse: $ex")
+                }
+                message?.let { output.send(it) }
+            }
+        }
+    }
+
+    private suspend fun dispatch(
+        input: ReceiveChannel<Response>,
+        output: SendChannel<Response>,
+        notifier: SendChannel<Response>
+    ) {
+        notifier.useOutput {
+            output.useOutput {
+                input.consumeEach {
+                    LOG.fine("[Dispatcher] New response: $it")
+                    (if (it.isNotification) notifier else output).send(it)
+                }
+            }
         }
     }
 }
 
-private class DataInterpreter(private val output: SendChannel<Response>) {
-    private var state: State = State.Vanilla()
+private class FixedSizeReader {
+    data class Data(val product: ByteBuffer, val leftover: ByteBuffer)
 
-    private sealed class State {
-        class Vanilla : State()
-
-        class CollectingMessageLength : State() {
-            val storage: ByteBuffer = ByteBuffer.allocate(MESSAGE_LENGTH_LENGTH)
-        }
-
-        class CollectingMessage(messageLength: Int) : State() {
-            val storage: ByteBuffer = ByteBuffer.allocate(messageLength).also {
-                if (messageLength == 0)
-                    throw IllegalArgumentException("Unexpected message length: $messageLength")
+    companion object {
+        suspend fun read(
+            given: ByteBuffer,
+            input: ReceiveChannel<ByteBuffer>,
+            requested: Int
+        ): Data {
+            if (given.remaining() >= requested) {
+                LOG.fine("Given buffer is suitable")
+                return Data(given, given)
             }
-        }
-    }
 
-    suspend fun consume(buffer: ByteBuffer) {
-        buffer.order(DataType.BYTE_ORDER)
-        while (buffer.hasRemaining()) {
-            state = doConsume(state, buffer)
-        }
-    }
+            LOG.fine("Given buffer is too small. Falling back to allocation")
 
-    private companion object {
-        private val LOG: Logger = loggerFor<DataInterpreter>()
-    }
-
-    private suspend fun doConsume(state: State, buffer: ByteBuffer): State {
-        when (state) {
-            is State.Vanilla -> {
-                if (buffer.remaining() < MESSAGE_LENGTH_LENGTH)
-                    return State.CollectingMessageLength()
-                return State.CollectingMessage(DataType.I32.deserialize(buffer))
-            }
-            is State.CollectingMessageLength -> {
-                buffer.transferTo(state.storage)
-                if (!state.storage.hasRemaining()) {
-                    state.storage.rewind()
-                    return State.CollectingMessage(DataType.I32.deserialize(state.storage))
+            val storage = ByteBuffer.allocate(requested)
+            var source = given
+            while (true) {
+                source.transferTo(storage)
+                if (!storage.hasRemaining()) {
+                    storage.rewind()
+                    return Data(storage, source)
                 }
-            }
-            is State.CollectingMessage -> {
-                buffer.transferTo(state.storage)
-                if (!state.storage.hasRemaining()) {
-                    state.storage.rewind()
-                    try {
-                        output.send(Response.deserialize(state.storage))
-                    } catch (ex: Throwable) {
-                        LOG.warning("Failed to deserialize message: $ex")
-                    }
-                    return State.Vanilla()
-                }
+                source = input.receive()
+                LOG.fine("Read ${source.remaining()}")
             }
         }
-        return state
+
+        val LOG = loggerFor<FixedSizeReader>()
     }
 }

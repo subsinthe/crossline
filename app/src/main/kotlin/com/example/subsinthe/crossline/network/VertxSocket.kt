@@ -1,6 +1,6 @@
 package com.example.subsinthe.crossline.network
 
-import com.example.subsinthe.crossline.util.transferTo
+import com.example.subsinthe.crossline.util.loggerFor
 import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.net.NetSocket
@@ -13,10 +13,9 @@ import kotlinx.coroutines.experimental.channels.consumeEach
 import kotlinx.coroutines.experimental.channels.sendBlocking
 import java.nio.ByteBuffer
 
-class VertxSocketFactory(override val coroutineScope: CoroutineScope) : ISocketFactory {
-    private val vertxContext = Vertx.vertx().also {
-        System.setProperty("vertx.disableFileCPResolving", "true")
-    }
+class VertxSocketFactory(val coroutineScope: CoroutineScope) : ISocketFactory {
+    init { System.setProperty("vertx.disableFileCPResolving", "true") }
+    private val vertxContext = Vertx.vertx()
 
     override fun close() = vertxContext.close()
 
@@ -39,47 +38,32 @@ private class VertxStreamSocket(
     private val readQueue = Channel<ByteBuffer>()
     private val writer = coroutineScope.actor<ByteBuffer> {
         consumeEach { buffer ->
-            wrapped.write(Buffer.buffer(buffer.array()))
+            val product = Buffer.buffer(buffer.array())
+
+            LOG.fine("Writing ${product.length()}")
+            wrapped.write(product)
         }
     }
-    private var readBufferLeftover: ByteBuffer? = null
     init {
         wrapped.handler { buffer ->
+            LOG.fine("onRead(${buffer.length()})")
             readQueue.sendBlocking(ByteBuffer.wrap(buffer.getBytes()))
         }
         wrapped.closeHandler {
+            LOG.fine("onClose()")
             readQueue.close()
         }
-        wrapped.exceptionHandler { throwable ->
-            readQueue.close(throwable)
+        wrapped.exceptionHandler { ex ->
+            LOG.fine("onClose($ex)")
+            readQueue.close(ex)
         }
     }
 
     override fun close() = wrapped.close()
 
-    override suspend fun read(buffer: ByteBuffer): Int {
-        var bytesRead = 0
+    override suspend fun read() = readQueue.receive()
 
-        val leftover = readBufferLeftover
-        if (leftover != null) {
-            bytesRead += leftover.transferTo(buffer)
-            if (!leftover.hasRemaining())
-                readBufferLeftover = null
-        }
-        if (!buffer.hasRemaining())
-            return bytesRead
+    override suspend fun write(buffer: ByteBuffer) { writer.send(buffer) }
 
-        val readBuffer = readQueue.receive()
-
-        bytesRead += readBuffer.transferTo(buffer)
-        if (readBuffer.hasRemaining())
-            readBufferLeftover = readBuffer
-
-        return bytesRead
-    }
-
-    override suspend fun write(buffer: ByteBuffer) {
-        writer.send(buffer)
-        buffer.flip()
-    }
+    private companion object { val LOG = loggerFor<VertxStreamSocket>() }
 }

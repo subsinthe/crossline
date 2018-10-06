@@ -2,10 +2,10 @@ package com.example.subsinthe.crossline.soulseek
 
 import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.util.loggerFor
+import kotlinx.coroutines.experimental.CoroutineScope
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.codec.digest.DigestUtils
 import java.io.Closeable
-import java.util.logging.Logger
 
 class LoginFailedException(reason: String) : Exception("Login failed: $reason")
 
@@ -15,24 +15,20 @@ data class Credentials(val username: String, val password: String) {
 
 class Client private constructor(private val connection: ServerConnection) : Closeable {
     companion object {
-        private val LOG: Logger = loggerFor<Client>()
+        private val LOG = loggerFor<Client>()
 
         suspend fun build(
+            scope: CoroutineScope,
             socketFactory: ISocketFactory,
             host: String = "server.slsknet.org",
             port: Int = 2242
-        ) = Client(
-            ServerConnection(
-                socketFactory.coroutineScope,
-                socketFactory.createTcpConnection(host, port),
-                1 * 1024 * 1024
-            )
-        )
+        ) = Client(ServerConnection(scope, socketFactory.createTcpConnection(host, port)))
     }
 
     override fun close() = connection.close()
 
     suspend fun login(credentials: Credentials) {
+        LOG.info("login()")
         val response = connection.make_request(
             Request.Login(
                 username = credentials.username,
@@ -46,7 +42,10 @@ class Client private constructor(private val connection: ServerConnection) : Clo
             is Response.LoginSuccessful -> {
                 LOG.info("Successfully logged in. Server says ${response.greet}")
             }
-            is Response.LoginFailed -> throw LoginFailedException(response.reason)
+            is Response.LoginFailed -> {
+                LOG.warning("Failed to log in: ${response.reason}")
+                throw LoginFailedException(response.reason)
+            }
         }
     }
 }
