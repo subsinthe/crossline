@@ -6,7 +6,6 @@ import kotlinx.coroutines.experimental.CoroutineScope
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.codec.digest.DigestUtils
 import java.io.Closeable
-import java.util.logging.Logger
 
 class LoginFailedException(reason: String) : Exception("Login failed: $reason")
 
@@ -16,7 +15,7 @@ data class Credentials(val username: String, val password: String) {
 
 class Client private constructor(private val connection: ServerConnection) : Closeable {
     companion object {
-        private val LOG: Logger = loggerFor<Client>()
+        private val LOG = loggerFor<Client>()
 
         suspend fun build(
             scope: CoroutineScope,

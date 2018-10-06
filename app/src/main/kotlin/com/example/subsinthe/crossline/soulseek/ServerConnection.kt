@@ -15,7 +15,6 @@ import kotlinx.coroutines.experimental.isActive
 import kotlinx.coroutines.experimental.launch
 import java.io.Closeable
 import java.nio.ByteBuffer
-import java.util.logging.Logger
 
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
 private const val RESPONSE_QUEUE_SIZE = 64
@@ -42,7 +41,7 @@ class ServerConnection(
 
     override fun close() = socket.close()
 
-    private companion object { val LOG: Logger = loggerFor<ServerConnection>() }
+    private companion object { val LOG = loggerFor<ServerConnection>() }
 
     private suspend fun read(
         scope: CoroutineScope,
