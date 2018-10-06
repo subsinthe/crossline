@@ -13,7 +13,7 @@ data class Credentials(val username: String, val password: String) {
     fun makeMd5(): String = String(Hex.encodeHex(DigestUtils.md5("$username$password")))
 }
 
-class Client private constructor(private val serverSocket: ServerConnection) : Closeable {
+class Client private constructor(private val connection: ServerConnection) : Closeable {
     companion object {
         private val LOG: Logger = loggerFor<Client>()
 
@@ -30,10 +30,10 @@ class Client private constructor(private val serverSocket: ServerConnection) : C
         )
     }
 
-    override fun close() = serverSocket.close()
+    override fun close() = connection.close()
 
     suspend fun login(credentials: Credentials) {
-        serverSocket.write(
+        val response = connection.make_request(
             Request.Login(
                 username = credentials.username,
                 password = credentials.password,
@@ -42,8 +42,6 @@ class Client private constructor(private val serverSocket: ServerConnection) : C
                 minorVersion = 1
             )
         )
-
-        val response = serverSocket.read()
         when (response) {
             is Response.LoginSuccessful -> {
                 LOG.info("Successfully logged in. Server says ${response.greet}")

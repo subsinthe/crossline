@@ -29,9 +29,10 @@ class ServerConnection(
         socket.close()
     }
 
-    suspend fun write(request: Request) = socket.write(request.serialize())
-
-    suspend fun read() = readQueue.receive()
+    suspend fun make_request(request: Request): Response {
+        socket.write(request.serialize())
+        return readQueue.receive()
+    }
 
     private companion object {
         private val LOG: Logger = loggerFor<ServerConnection>()
