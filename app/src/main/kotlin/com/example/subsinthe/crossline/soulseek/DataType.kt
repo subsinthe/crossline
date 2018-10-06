@@ -43,6 +43,8 @@ sealed class DataType {
         companion object {
             fun deserialize(buffer: ByteBuffer): String {
                 val length = I32.deserialize(buffer)
+                if (length == 0)
+                    return String()
                 val storage = ByteArray(length)
                 buffer.get(storage)
                 return String(storage)
