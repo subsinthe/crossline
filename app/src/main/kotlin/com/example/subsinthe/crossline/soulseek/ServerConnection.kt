@@ -112,8 +112,10 @@ private class FixedSizeReader {
             var source = given
             while (true) {
                 source.transferTo(storage)
-                if (!storage.hasRemaining())
+                if (!storage.hasRemaining()) {
+                    storage.rewind()
                     return Data(storage, source)
+                }
                 source = input.receive()
             }
         }
