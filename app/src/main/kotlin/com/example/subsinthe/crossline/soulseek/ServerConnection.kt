@@ -42,9 +42,7 @@ class ServerConnection(
 
     override fun close() = socket.close()
 
-    private companion object {
-        private val LOG: Logger = loggerFor<ServerConnection>()
-    }
+    private companion object { private val LOG: Logger = loggerFor<ServerConnection>() }
 
     private suspend fun read(
         scope: CoroutineScope,
