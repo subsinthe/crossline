@@ -1,5 +1,6 @@
 package com.example.subsinthe.crossline.network
 
+import com.example.subsinthe.crossline.util.loggerFor
 import com.example.subsinthe.crossline.util.transferTo
 import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
@@ -38,19 +39,24 @@ private class VertxStreamSocket(
     private val readQueue = Channel<ByteBuffer>()
     private val writer = coroutineScope.actor<ByteBuffer> {
         consumeEach { buffer ->
-            wrapped.write(Buffer.buffer(buffer.array()))
+            val product = Buffer.buffer(buffer.array())
+
+            LOG.fine("Writing ${product.length()}")
+            wrapped.write(product)
         }
     }
-    private var readBufferLeftover: ByteBuffer? = null
     init {
         wrapped.handler { buffer ->
+            LOG.fine("onRead(${buffer.length()})")
             readQueue.sendBlocking(ByteBuffer.wrap(buffer.getBytes()))
         }
         wrapped.closeHandler {
+            LOG.fine("onClose()")
             readQueue.close()
         }
-        wrapped.exceptionHandler { throwable ->
-            readQueue.close(throwable)
+        wrapped.exceptionHandler { ex ->
+            LOG.fine("onClose($ex)")
+            readQueue.close(ex)
         }
     }
 
@@ -80,4 +86,6 @@ private class VertxStreamSocket(
         writer.send(buffer)
         buffer.flip()
     }
+
+    private companion object { val LOG = loggerFor<VertxStreamSocket>() }
 }
