@@ -44,8 +44,11 @@ class ServerConnection(
 
     private suspend fun read(scope: CoroutineScope, output: SendChannel<ByteBuffer>) {
         output.useOutput {
-            while (scope.isActive)
-                output.send(socket.read())
+            while (scope.isActive) {
+                val buffer = socket.read()
+                LOG.fine("Read ${buffer.remaining()}")
+                output.send(buffer)
+            }
         }
     }
 
@@ -62,6 +65,7 @@ class ServerConnection(
                 val messageLength = DataType.I32.deserialize(messageLengthData.product)
                 if (messageLength == 0)
                     throw IllegalArgumentException("Unexpected message length: $messageLength")
+                LOG.fine("New message length: $messageLength")
 
                 val messageData = FixedSizeReader.read(buffer, input, messageLength)
                 buffer = messageData.leftover
@@ -84,6 +88,7 @@ class ServerConnection(
         notifier.useOutput {
             output.useOutput {
                 input.consumeEach {
+                    LOG.fine("New response: $it")
                     (if (it.isNotification) notifier else output).send(it)
                 }
             }
