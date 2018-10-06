@@ -79,9 +79,8 @@ class MainActivityUI(
                         )
                         LOG.info("Successfully logged in")
                         toast("Successfully logged in")
-                    } catch (throwable: Throwable) {
-                        throwable.printStackTrace()
-                        toast("Error logging in: $throwable")
+                    } catch (ex: Throwable) {
+                        toast("Error logging in: $ex")
                     }
                 }
             }

@@ -52,9 +52,8 @@ class ServerSocket(
                 buffer.rewind()
                 try {
                     interpreter.consume(buffer)
-                } catch (throwable: Throwable) {
-                    LOG.warning("Failed to consume read data: $throwable")
-                    throwable.printStackTrace()
+                } catch (ex: Throwable) {
+                    LOG.warning("Failed to consume read data: $ex")
                 }
                 buffer.clear()
             }
@@ -115,9 +114,8 @@ private class DataInterpreter(private val output: SendChannel<Response>) {
                     state.storage.rewind()
                     try {
                         output.send(Response.deserialize(state.storage))
-                    } catch (throwable: Throwable) {
-                        LOG.warning("Failed to deserialize message: $throwable")
-                        throwable.printStackTrace()
+                    } catch (ex: Throwable) {
+                        LOG.warning("Failed to deserialize message: $ex")
                     }
                     return State.Vanilla()
                 }
