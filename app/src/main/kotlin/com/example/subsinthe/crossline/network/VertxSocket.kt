@@ -14,9 +14,8 @@ import kotlinx.coroutines.experimental.channels.sendBlocking
 import java.nio.ByteBuffer
 
 class VertxSocketFactory(val coroutineScope: CoroutineScope) : ISocketFactory {
-    private val vertxContext = Vertx.vertx().also {
-        System.setProperty("vertx.disableFileCPResolving", "true")
-    }
+    init { System.setProperty("vertx.disableFileCPResolving", "true") }
+    private val vertxContext = Vertx.vertx()
 
     override fun close() = vertxContext.close()
 
