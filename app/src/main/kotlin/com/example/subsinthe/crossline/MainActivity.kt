@@ -6,6 +6,7 @@ import android.widget.Button
 import android.widget.EditText
 import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.soulseek.Credentials
+import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.loggerFor
 import kotlinx.coroutines.experimental.CoroutineScope
 import kotlinx.coroutines.experimental.Dispatchers
@@ -41,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        AndroidLoggingHandler.reset(AndroidLoggingHandler())
         MainActivityUI(uiScope, ioScope, socketFactory).setContentView(this)
     }
 
