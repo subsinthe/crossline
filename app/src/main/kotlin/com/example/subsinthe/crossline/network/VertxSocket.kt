@@ -1,7 +1,6 @@
 package com.example.subsinthe.crossline.network
 
 import com.example.subsinthe.crossline.util.loggerFor
-import com.example.subsinthe.crossline.util.transferTo
 import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.net.NetSocket
@@ -62,30 +61,9 @@ private class VertxStreamSocket(
 
     override fun close() = wrapped.close()
 
-    override suspend fun read(buffer: ByteBuffer): Int {
-        var bytesRead = 0
+    override suspend fun read() = readQueue.receive()
 
-        readBufferLeftover?.let {
-            bytesRead += it.transferTo(buffer)
-            if (!it.hasRemaining())
-                readBufferLeftover = null
-        }
-        if (!buffer.hasRemaining())
-            return bytesRead
-
-        val readBuffer = readQueue.receive()
-
-        bytesRead += readBuffer.transferTo(buffer)
-        if (readBuffer.hasRemaining())
-            readBufferLeftover = readBuffer
-
-        return bytesRead
-    }
-
-    override suspend fun write(buffer: ByteBuffer) {
-        writer.send(buffer)
-        buffer.flip()
-    }
+    override suspend fun write(buffer: ByteBuffer) { writer.send(buffer) }
 
     private companion object { val LOG = loggerFor<VertxStreamSocket>() }
 }

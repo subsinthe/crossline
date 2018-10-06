@@ -18,7 +18,6 @@ import java.nio.ByteBuffer
 
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
 private const val RESPONSE_QUEUE_SIZE = 64
-private const val READ_BUFFER_SIZE = 1 * 1024 * 1024
 
 class ServerConnection(
     private val scope: CoroutineScope,
@@ -30,7 +29,7 @@ class ServerConnection(
         dispatch(channel, readQueue, notifier.channel)
     }
     private val interpreter = scope.actor<ByteBuffer> { interpret(channel, dispatcher) }
-    private val reader = scope.launch { read(scope, interpreter, READ_BUFFER_SIZE) }
+    private val reader = scope.launch { read(scope, interpreter) }
 
     suspend fun make_request(request: Request): Response {
         socket.write(request.serialize())
@@ -43,21 +42,10 @@ class ServerConnection(
 
     private companion object { val LOG = loggerFor<ServerConnection>() }
 
-    private suspend fun read(
-        scope: CoroutineScope,
-        output: SendChannel<ByteBuffer>,
-        bufferSize: Int
-    ) {
+    private suspend fun read(scope: CoroutineScope, output: SendChannel<ByteBuffer>) {
         output.useOutput {
-            val buffer = ByteBuffer.allocate(maxOf(bufferSize, MESSAGE_LENGTH_LENGTH))
-            while (scope.isActive) {
-                val bytesRead = socket.read(buffer)
-                buffer.rewind()
-                val product = ByteBuffer.allocate(bytesRead)
-                buffer.transferTo(product)
-                output.send(product)
-                buffer.clear()
-            }
+            while (scope.isActive)
+                output.send(socket.read())
         }
     }
 

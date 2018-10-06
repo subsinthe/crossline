@@ -8,6 +8,6 @@ interface ISocketFactory : Closeable {
 }
 
 interface IStreamSocket : Closeable {
-    suspend fun read(buffer: ByteBuffer): Int
+    suspend fun read(): ByteBuffer
     suspend fun write(buffer: ByteBuffer)
 }
