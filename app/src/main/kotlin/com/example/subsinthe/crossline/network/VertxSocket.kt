@@ -13,7 +13,7 @@ import kotlinx.coroutines.experimental.channels.consumeEach
 import kotlinx.coroutines.experimental.channels.sendBlocking
 import java.nio.ByteBuffer
 
-class VertxSocketFactory(override val coroutineScope: CoroutineScope) : ISocketFactory {
+class VertxSocketFactory(val coroutineScope: CoroutineScope) : ISocketFactory {
     private val vertxContext = Vertx.vertx().also {
         System.setProperty("vertx.disableFileCPResolving", "true")
     }
@@ -60,10 +60,9 @@ private class VertxStreamSocket(
     override suspend fun read(buffer: ByteBuffer): Int {
         var bytesRead = 0
 
-        val leftover = readBufferLeftover
-        if (leftover != null) {
-            bytesRead += leftover.transferTo(buffer)
-            if (!leftover.hasRemaining())
+        readBufferLeftover?.let {
+            bytesRead += it.transferTo(buffer)
+            if (!it.hasRemaining())
                 readBufferLeftover = null
         }
         if (!buffer.hasRemaining())

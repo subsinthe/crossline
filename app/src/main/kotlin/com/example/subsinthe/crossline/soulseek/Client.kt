@@ -2,6 +2,7 @@ package com.example.subsinthe.crossline.soulseek
 
 import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.util.loggerFor
+import kotlinx.coroutines.experimental.CoroutineScope
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.codec.digest.DigestUtils
 import java.io.Closeable
@@ -18,16 +19,11 @@ class Client private constructor(private val connection: ServerConnection) : Clo
         private val LOG: Logger = loggerFor<Client>()
 
         suspend fun build(
+            scope: CoroutineScope,
             socketFactory: ISocketFactory,
             host: String = "server.slsknet.org",
             port: Int = 2242
-        ) = Client(
-            ServerConnection(
-                socketFactory.coroutineScope,
-                socketFactory.createTcpConnection(host, port),
-                1 * 1024 * 1024
-            )
-        )
+        ) = Client(ServerConnection(scope, socketFactory.createTcpConnection(host, port)))
     }
 
     override fun close() = connection.close()

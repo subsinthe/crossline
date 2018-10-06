@@ -70,7 +70,7 @@ class MainActivityUI(
             button("Log in") {
                 onClick {
                     try {
-                        val client = SoulseekClient.build(socketFactory)
+                        val client = SoulseekClient.build(uiScope, socketFactory)
                         client.login(
                             Credentials(
                                 username = "username",

@@ -1,12 +1,9 @@
 package com.example.subsinthe.crossline.network
 
-import kotlinx.coroutines.experimental.CoroutineScope
 import java.io.Closeable
 import java.nio.ByteBuffer
 
 interface ISocketFactory : Closeable {
-    val coroutineScope: CoroutineScope
-
     suspend fun createTcpConnection(host: String, port: Int): IStreamSocket
 }
 

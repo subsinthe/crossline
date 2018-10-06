@@ -5,6 +5,8 @@ import java.nio.ByteBuffer
 class UnexpectedMessageCodeException(code: Int) : Exception("Unexpected message code $code")
 
 sealed class Response {
+    abstract val isNotification: Boolean
+
     companion object {
         private const val MESSAGE_TYPE_LENGTH = DataType.I32.SIZE
 
@@ -35,6 +37,10 @@ sealed class Response {
         )
     }
 
-    data class LoginSuccessful(val greet: String, val ip: Int) : Response()
-    data class LoginFailed(val reason: String) : Response()
+    data class LoginSuccessful(val greet: String, val ip: Int) : Response() {
+        override val isNotification = false
+    }
+    data class LoginFailed(val reason: String) : Response() {
+        override val isNotification = false
+    }
 }

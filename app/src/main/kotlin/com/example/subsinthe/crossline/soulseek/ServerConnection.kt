@@ -1,11 +1,16 @@
 package com.example.subsinthe.crossline.soulseek
 
 import com.example.subsinthe.crossline.network.IStreamSocket
+import com.example.subsinthe.crossline.util.Multicast
 import com.example.subsinthe.crossline.util.loggerFor
 import com.example.subsinthe.crossline.util.transferTo
+import com.example.subsinthe.crossline.util.useOutput
 import kotlinx.coroutines.experimental.CoroutineScope
 import kotlinx.coroutines.experimental.channels.Channel
+import kotlinx.coroutines.experimental.channels.ReceiveChannel
 import kotlinx.coroutines.experimental.channels.SendChannel
+import kotlinx.coroutines.experimental.channels.actor
+import kotlinx.coroutines.experimental.channels.consumeEach
 import kotlinx.coroutines.experimental.isActive
 import kotlinx.coroutines.experimental.launch
 import java.io.Closeable
@@ -15,53 +20,71 @@ import java.util.logging.Logger
 private class ConnectionClosedException : Exception("Connection closed")
 
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
+private const val RESPONSE_QUEUE_SIZE = 64
+private const val READ_BUFFER_SIZE = 1 * 1024 * 1024
 
 class ServerConnection(
-    private val ioScope: CoroutineScope,
-    private val socket: IStreamSocket,
-    bufferSize: Int
+    private val scope: CoroutineScope,
+    private val socket: IStreamSocket
 ) : Closeable {
-    private val readQueue = Channel<Response>()
-    private val reader = ioScope.launch { readerFunc(ioScope, bufferSize) }
-
-    override fun close() {
-        reader.cancel()
-        socket.close()
+    private val readQueue = Channel<Response>(RESPONSE_QUEUE_SIZE)
+    private val notifier = Multicast<Response>(scope, RESPONSE_QUEUE_SIZE)
+    private val dispatcher = scope.actor<Response> {
+        dispatch(channel, readQueue, notifier.channel)
     }
+    private val reader = scope.launch { read(scope, dispatcher, READ_BUFFER_SIZE) }
 
     suspend fun make_request(request: Request): Response {
         socket.write(request.serialize())
         return readQueue.receive()
     }
 
+    suspend fun subscrbe(handler: suspend (Response) -> Unit) = notifier.subscribe(handler)
+
+    override fun close() = socket.close()
+
     private companion object {
         private val LOG: Logger = loggerFor<ServerConnection>()
     }
 
-    private suspend fun readerFunc(scope: CoroutineScope, bufferSize: Int) {
-        var closeException: Throwable? = null
+    private suspend fun read(
+        scope: CoroutineScope,
+        output: SendChannel<Response>,
+        bufferSize: Int
+    ) {
+        output.useOutput {
         val buffer = ByteBuffer.allocate(maxOf(bufferSize, MESSAGE_LENGTH_LENGTH))
-        val interpreter = DataInterpreter(readQueue)
-        try {
-            while (scope.isActive) {
-                val bytesRead = socket.read(buffer)
-                if (bytesRead == -1) {
-                    closeException = ConnectionClosedException()
-                    break
-                }
-                buffer.limit(bytesRead)
-                buffer.rewind()
-                try {
-                    interpreter.consume(buffer)
-                } catch (ex: Throwable) {
-                    LOG.warning("Failed to consume read data: $ex")
-                }
-                buffer.clear()
+        val interpreter = DataInterpreter(output)
+        while (scope.isActive) {
+            val bytesRead = socket.read(buffer)
+            if (bytesRead == -1)
+                throw ConnectionClosedException()
+            buffer.limit(bytesRead)
+            buffer.rewind()
+            try {
+                interpreter.consume(buffer)
+            } catch (ex: Throwable) {
+                LOG.warning("Failed to consume read data: $ex")
             }
-        } catch (throwable: Throwable) {
-            closeException = throwable
-        } finally {
-            readQueue.close(closeException)
+            buffer.clear()
+        }
+        }
+    }
+
+    private suspend fun dispatch(
+        input: ReceiveChannel<Response>,
+        output: SendChannel<Response>,
+        notifier: SendChannel<Response>
+    ) {
+        notifier.useOutput {
+        output.useOutput {
+        input.consumeEach {
+            if (it.isNotification)
+                notifier.send(it)
+            else
+                output.send(it)
+        }
+        }
         }
     }
 }
