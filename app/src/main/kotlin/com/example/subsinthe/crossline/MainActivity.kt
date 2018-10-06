@@ -72,13 +72,14 @@ class MainActivityUI(
             button("Log in") {
                 onClick {
                     try {
-                        val client = SoulseekClient.build(uiScope, socketFactory)
-                        client.login(
-                            Credentials(
-                                username = "username",
-                                password = "password"
+                        SoulseekClient.build(uiScope, socketFactory).use { client ->
+                            client.login(
+                                Credentials(
+                                    username = "username",
+                                    password = "password"
+                                )
                             )
-                        )
+                        }
                         toast("Successfully logged in")
                     } catch (ex: Throwable) {
                         toast("Error logging in: $ex")
