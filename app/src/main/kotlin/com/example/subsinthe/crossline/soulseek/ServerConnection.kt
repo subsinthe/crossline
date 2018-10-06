@@ -30,7 +30,8 @@ class ServerConnection(
     private val dispatcher = scope.actor<Response> {
         dispatch(channel, readQueue, notifier.channel)
     }
-    private val reader = scope.launch { read(scope, dispatcher, READ_BUFFER_SIZE) }
+    private val interpreter = scope.actor<ByteBuffer> { interpret(channel, dispatcher) }
+    private val reader = scope.launch { read(scope, interpreter, READ_BUFFER_SIZE) }
 
     suspend fun make_request(request: Request): Response {
         socket.write(request.serialize())
@@ -47,23 +48,46 @@ class ServerConnection(
 
     private suspend fun read(
         scope: CoroutineScope,
-        output: SendChannel<Response>,
+        output: SendChannel<ByteBuffer>,
         bufferSize: Int
     ) {
         output.useOutput {
-        val buffer = ByteBuffer.allocate(maxOf(bufferSize, MESSAGE_LENGTH_LENGTH))
-        val interpreter = DataInterpreter(output)
-        while (scope.isActive) {
-            val bytesRead = socket.read(buffer)
-            buffer.limit(bytesRead)
-            buffer.rewind()
-            try {
-                interpreter.consume(buffer)
-            } catch (ex: Throwable) {
-                LOG.warning("Failed to consume read data: $ex")
+            val buffer = ByteBuffer.allocate(maxOf(bufferSize, MESSAGE_LENGTH_LENGTH))
+            while (scope.isActive) {
+                val bytesRead = socket.read(buffer)
+                buffer.rewind()
+                val product = ByteBuffer.allocate(bytesRead)
+                buffer.transferTo(product)
+                output.send(product)
+                buffer.clear()
             }
-            buffer.clear()
         }
+    }
+
+    private suspend fun interpret(
+        input: ReceiveChannel<ByteBuffer>,
+        output: SendChannel<Response>
+    ) {
+        output.useOutput {
+            var buffer = input.receive()
+            while (true) {
+                val messageLengthData = FixedSizeReader.read(buffer, input, MESSAGE_LENGTH_LENGTH)
+                buffer = messageLengthData.leftover
+                messageLengthData.product.order(DataType.BYTE_ORDER)
+                val messageLength = DataType.I32.deserialize(messageLengthData.product)
+                if (messageLength == 0)
+                    throw IllegalArgumentException("Unexpected message length: $messageLength")
+
+                val messageData = FixedSizeReader.read(buffer, input, messageLength)
+                buffer = messageData.leftover
+                var message: Response? = null
+                try {
+                    message = Response.deserialize(messageData.product)
+                } catch (ex: Throwable) {
+                    LOG.warning("Failed to deserialize reponse: $ex")
+                }
+                message?.let { output.send(it) }
+            }
         }
     }
 
@@ -73,74 +97,33 @@ class ServerConnection(
         notifier: SendChannel<Response>
     ) {
         notifier.useOutput {
-        output.useOutput {
-        input.consumeEach {
-            if (it.isNotification)
-                notifier.send(it)
-            else
-                output.send(it)
-        }
-        }
+            output.useOutput {
+                input.consumeEach { (if (it.isNotification) notifier else output).send(it) }
+            }
         }
     }
 }
 
-private class DataInterpreter(private val output: SendChannel<Response>) {
-    private var state: State = State.Vanilla()
+private class FixedSizeReader {
+    data class Data(val product: ByteBuffer, val leftover: ByteBuffer)
 
-    private sealed class State {
-        class Vanilla : State()
+    companion object {
+        suspend fun read(
+            given: ByteBuffer,
+            input: ReceiveChannel<ByteBuffer>,
+            requested: Int
+        ): Data {
+            if (given.remaining() >= requested)
+                return Data(given, given)
 
-        class CollectingMessageLength : State() {
-            val storage: ByteBuffer = ByteBuffer.allocate(MESSAGE_LENGTH_LENGTH)
-        }
-
-        class CollectingMessage(messageLength: Int) : State() {
-            val storage: ByteBuffer = ByteBuffer.allocate(messageLength).also {
-                if (messageLength == 0)
-                    throw IllegalArgumentException("Unexpected message length: $messageLength")
+            val storage = ByteBuffer.allocate(requested)
+            var source = given
+            while (true) {
+                source.transferTo(storage)
+                if (!storage.hasRemaining())
+                    return Data(storage, source)
+                source = input.receive()
             }
         }
-    }
-
-    suspend fun consume(buffer: ByteBuffer) {
-        buffer.order(DataType.BYTE_ORDER)
-        while (buffer.hasRemaining()) {
-            state = doConsume(state, buffer)
-        }
-    }
-
-    private companion object {
-        private val LOG: Logger = loggerFor<DataInterpreter>()
-    }
-
-    private suspend fun doConsume(state: State, buffer: ByteBuffer): State {
-        when (state) {
-            is State.Vanilla -> {
-                if (buffer.remaining() < MESSAGE_LENGTH_LENGTH)
-                    return State.CollectingMessageLength()
-                return State.CollectingMessage(DataType.I32.deserialize(buffer))
-            }
-            is State.CollectingMessageLength -> {
-                buffer.transferTo(state.storage)
-                if (!state.storage.hasRemaining()) {
-                    state.storage.rewind()
-                    return State.CollectingMessage(DataType.I32.deserialize(state.storage))
-                }
-            }
-            is State.CollectingMessage -> {
-                buffer.transferTo(state.storage)
-                if (!state.storage.hasRemaining()) {
-                    state.storage.rewind()
-                    try {
-                        output.send(Response.deserialize(state.storage))
-                    } catch (ex: Throwable) {
-                        LOG.warning("Failed to deserialize message: $ex")
-                    }
-                    return State.Vanilla()
-                }
-            }
-        }
-        return state
     }
 }
