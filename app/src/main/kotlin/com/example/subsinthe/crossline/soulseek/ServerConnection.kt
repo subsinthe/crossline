@@ -17,8 +17,6 @@ import java.io.Closeable
 import java.nio.ByteBuffer
 import java.util.logging.Logger
 
-private class ConnectionClosedException : Exception("Connection closed")
-
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
 private const val RESPONSE_QUEUE_SIZE = 64
 private const val READ_BUFFER_SIZE = 1 * 1024 * 1024
@@ -57,8 +55,6 @@ class ServerConnection(
         val interpreter = DataInterpreter(output)
         while (scope.isActive) {
             val bytesRead = socket.read(buffer)
-            if (bytesRead == -1)
-                throw ConnectionClosedException()
             buffer.limit(bytesRead)
             buffer.rewind()
             try {
