@@ -2,7 +2,6 @@ buildscript {
     ext.gradle_version = '3.1.4'
     ext.kotlin_version = '1.2.61'
     ext.kotlin_coroutines_version = '0.26.1'
-    ext.anko_version = '0.10.6'
     ext.vertx_version = '3.5.3'
 
     repositories {
