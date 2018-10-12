@@ -39,11 +39,13 @@ private class DefaultExceptionHandler {
 }
 
 private class UiScope : CoroutineScope {
-    override val coroutineContext: CoroutineContext = Dispatchers.Main + DefaultExceptionHandler.get()
+    override val coroutineContext: CoroutineContext =
+        Dispatchers.Main + DefaultExceptionHandler.get()
 }
 
 private class IoScope : CoroutineScope {
-    override val coroutineContext: CoroutineContext = Dispatchers.IO + DefaultExceptionHandler.get()
+    override val coroutineContext: CoroutineContext =
+        Dispatchers.IO + DefaultExceptionHandler.get()
 }
 
 class MainActivity : AppCompatActivity() {
