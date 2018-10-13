@@ -27,11 +27,15 @@ class Client private constructor(private val connection: ServerConnection) : Clo
         ) = Client(ServerConnection(scope, socketFactory.createTcpConnection(host, port)))
     }
 
-    override fun close() = connection.close()
+    override fun close() {
+        connection.close()
+        fileSearchToken?.close()
+    }
 
     suspend fun login(credentials: Credentials) {
         LOG.info("login()")
-        val response = connection.make_request(
+
+        connection.write(
             Request.Login(
                 username = credentials.username,
                 password = credentials.password,
@@ -40,6 +44,7 @@ class Client private constructor(private val connection: ServerConnection) : Clo
                 minorVersion = 1
             )
         )
+        val response = connection.read()
         when (response) {
             is Response.LoginSuccessful -> {
                 LOG.info("Successfully logged in. Server says ${response.greet}")

@@ -31,10 +31,9 @@ class ServerConnection(
     private val interpreter = scope.actor<ByteBuffer> { interpret(channel, dispatcher) }
     private val reader = scope.launch { read(scope, interpreter) }
 
-    suspend fun make_request(request: Request): Response {
-        socket.write(request.serialize())
-        return readQueue.receive()
-    }
+    suspend fun write(request: Request) = socket.write(request.serialize())
+
+    suspend fun read() = readQueue.receive()
 
     suspend fun subscribe(handler: suspend (Response) -> Unit) = notifier.subscribe(handler)
 
