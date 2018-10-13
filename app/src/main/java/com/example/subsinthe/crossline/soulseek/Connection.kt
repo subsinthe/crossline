@@ -16,6 +16,9 @@ import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.util.logging.Logger
 
+typealias ServerConnection = Connection<ServerRequest, ServerResponse>
+typealias PeerConnection = Connection<PeerRequest, PeerResponse>
+
 class Connection<in Request_, out Response_> private constructor(
     private val scope: CoroutineScope,
     private val socket: IStreamSocket,
@@ -117,9 +120,6 @@ class Connection<in Request_, out Response_> private constructor(
         }
     }
 }
-
-typealias ServerConnection = Connection<ServerRequest, ServerResponse>
-typealias PeerConnection = Connection<PeerRequest, PeerResponse>
 
 private class FixedSizeReader {
     data class Data(val product: ByteBuffer, val leftover: ByteBuffer)
