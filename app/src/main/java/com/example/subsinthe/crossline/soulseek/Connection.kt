@@ -78,7 +78,7 @@ class Connection<in Request_, out Response_> private constructor(
 
                 if (messageLength > MAX_ADEQUATE_MESSAGE_LENGTH) {
                     LOG.warning(
-                        "Message length ($messageLength) is larger than adequate message length"
+                        "[Interpreter]: Message length $messageLength is larger than adequate message length"
                     )
                     continue
                 }
