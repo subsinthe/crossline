@@ -33,4 +33,12 @@ sealed class Request {
             DataType.build(minorVersion)
         )
     }
+
+    class FileSearch(ticket: Int, query: String) : Request() {
+        override val code = 26
+
+        override val stream: Iterable<DataType> = listOf(
+            DataType.build(ticket), DataType.build(query)
+        )
+    }
 }

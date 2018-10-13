@@ -35,7 +35,8 @@ sealed class Response {
                     Response.LoginSuccessful.deserialize(buffer)
                 else
                     Response.LoginFailed.deserialize(buffer)
-            }
+            },
+            9 to { buffer -> SearchReply.deserialize(buffer) }
         )
     }
 
@@ -59,6 +60,53 @@ sealed class Response {
             fun deserialize(buffer: ByteBuffer) = LoginFailed(
                 reason = DataType.Str.deserialize(buffer)
             )
+        }
+    }
+
+    data class SearchReply(
+        val user: String,
+        val ticket: Int,
+        val results: ArrayList<Result>,
+        val slotfree: Boolean,
+        val avgspeed: Int,
+        val queueLength: Long
+    ) : Response() {
+        override val isNotification = true
+
+        companion object {
+            fun deserialize(buffer: ByteBuffer) = SearchReply(
+                user = DataType.Str.deserialize(buffer),
+                ticket = DataType.I32.deserialize(buffer),
+                results = DataType.List.deserialize<Result>({ Result.deserialize(it) }, buffer),
+                slotfree = DataType.Bool.deserialize(buffer),
+                avgspeed = DataType.I32.deserialize(buffer),
+                queueLength = DataType.I64.deserialize(buffer)
+            )
+        }
+        data class Result(
+            val filename: String,
+            val size: Long,
+            val ext: String,
+            val attributes: ArrayList<Attributes>
+        ) {
+            companion object {
+                fun deserialize(buffer: ByteBuffer) = Result(
+                    filename = DataType.Str.deserialize(buffer),
+                    size = DataType.I64.deserialize(buffer),
+                    ext = DataType.Str.deserialize(buffer),
+                    attributes = DataType.List.deserialize<Attributes>(
+                        { Attributes.deserialize(it) }, buffer
+                    )
+                )
+            }
+            data class Attributes(val placeInAttributes: Int, val attribute: Int) {
+                companion object {
+                    fun deserialize(buffer: ByteBuffer) = Attributes(
+                        placeInAttributes = DataType.I32.deserialize(buffer),
+                        attribute = DataType.I32.deserialize(buffer)
+                    )
+                }
+            }
         }
     }
 }
