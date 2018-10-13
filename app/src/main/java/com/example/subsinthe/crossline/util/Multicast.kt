@@ -22,12 +22,12 @@ private class CancellableHandler<T>(val wrapped: suspend (T) -> Unit) {
     fun cancel() { isCancelled = true }
 }
 
-class Multicast<T>(private val scope: CoroutineScope, queueCapacity: Int) {
+class Multicast<T>(private val scope: CoroutineScope) {
     private val handlers = HashMap<UUID, CancellableHandler<T>>()
-    private val worker = scope.actor<T>(capacity = queueCapacity) {
+    private val worker = scope.actor<T> {
         consumeEach {
             val copy = ArrayList(handlers.values)
-            for (handler in copy) {
+            for (handler in copy) scope.launch {
                 try {
                     handler(it)
                 } catch (ex: Throwable) {
