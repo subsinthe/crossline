@@ -19,9 +19,10 @@ import java.nio.ByteBuffer
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
 private const val RESPONSE_QUEUE_SIZE = 64
 
-class ServerConnection(
+class Connection private constructor(
     private val scope: CoroutineScope,
-    private val socket: IStreamSocket
+    private val socket: IStreamSocket,
+    private val responseDeserializer: ResponseDeserializer
 ) : Closeable {
     private val readQueue = Channel<Response>(RESPONSE_QUEUE_SIZE)
     private val notifier = Multicast<Response>(scope, RESPONSE_QUEUE_SIZE)
@@ -31,6 +32,14 @@ class ServerConnection(
     private val interpreter = scope.actor<ByteBuffer> { interpret(channel, dispatcher) }
     private val reader = scope.launch { read(scope, interpreter) }
 
+    companion object {
+        fun server(scope: CoroutineScope, socket: IStreamSocket) = Connection(
+            scope, socket, ResponseDeserializer.server()
+        )
+
+        private val LOG = loggerFor<Connection>()
+    }
+
     suspend fun write(request: Request) = socket.write(request.serialize())
 
     suspend fun read() = readQueue.receive()
@@ -38,8 +47,6 @@ class ServerConnection(
     suspend fun subscribe(handler: suspend (Response) -> Unit) = notifier.subscribe(handler)
 
     override fun close() = socket.close()
-
-    private companion object { val LOG = loggerFor<ServerConnection>() }
 
     private suspend fun read(scope: CoroutineScope, output: SendChannel<ByteBuffer>) {
         output.useOutput {
@@ -69,7 +76,7 @@ class ServerConnection(
                 messageData.product.order(DataType.BYTE_ORDER)
                 var message: Response? = null
 
-                if (messageLength < Response.MESSAGE_CODE_LENGTH) {
+                if (messageLength < responseDeserializer.messageCodeLength) {
                     LOG.warning(
                         "[Interpreter]: Message length $messageLength is less than message code length"
                     )
@@ -77,7 +84,7 @@ class ServerConnection(
                 }
 
                 try {
-                    message = Response.deserialize(messageData.product)
+                    message = responseDeserializer.deserialize(messageData.product)
                 } catch (ex: Throwable) {
                     LOG.warning("[Interpreter] Failed to deserialize reponse: $ex")
                 }

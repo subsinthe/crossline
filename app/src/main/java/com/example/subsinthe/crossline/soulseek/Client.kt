@@ -15,7 +15,7 @@ data class Credentials(val username: String, val password: String) {
     fun makeMd5(): String = String(Hex.encodeHex(DigestUtils.md5("$username$password")))
 }
 
-class Client private constructor(private val connection: ServerConnection) : Closeable {
+class Client private constructor(private val serverConnection: Connection) : Closeable {
     private var ticketGenerator = 0
 
     companion object {
@@ -26,15 +26,15 @@ class Client private constructor(private val connection: ServerConnection) : Clo
             socketFactory: ISocketFactory,
             host: String = "server.slsknet.org",
             port: Int = 2242
-        ) = Client(ServerConnection(scope, socketFactory.createTcpConnection(host, port)))
+        ) = Client(Connection.server(scope, socketFactory.createTcpConnection(host, port)))
     }
 
-    override fun close() = connection.close()
+    override fun close() = serverConnection.close()
 
     suspend fun login(credentials: Credentials) {
         LOG.info("login()")
 
-        connection.write(
+        serverConnection.write(
             Request.Login(
                 username = credentials.username,
                 password = credentials.password,
@@ -43,12 +43,12 @@ class Client private constructor(private val connection: ServerConnection) : Clo
                 minorVersion = 1
             )
         )
-        val response = connection.read()
+        val response = serverConnection.read()
         when (response) {
-            is Response.LoginSuccessful -> {
+            is ServerResponse.LoginSuccessful -> {
                 LOG.info("Successfully logged in. Server says ${response.greet}")
             }
-            is Response.LoginFailed -> {
+            is ServerResponse.LoginFailed -> {
                 LOG.warning("Failed to log in: ${response.reason}")
                 throw LoginFailedException(response.reason)
             }
@@ -61,9 +61,9 @@ class Client private constructor(private val connection: ServerConnection) : Clo
         LOG.info("fileSearch($query, ticket=$ticket)")
 
         val iterator = Channel<String>()
-        val token = connection.subscribe { response ->
+        val token = serverConnection.subscribe { response ->
             when (response) {
-                is Response.SearchReply -> {
+                is PeerResponse.SearchReply -> {
                     if (response.ticket != ticket)
                         return@subscribe
                     for (result in response.results) {

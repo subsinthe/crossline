@@ -1,46 +1,16 @@
 package com.example.subsinthe.crossline.soulseek
 
+import kotlin.collections.HashMap
 import java.nio.ByteBuffer
 
 class UnexpectedMessageCodeException(code: Int) : Exception("Unexpected message code $code")
 
-sealed class Response {
-    abstract val isNotification: Boolean
+interface Response {
+    val isNotification: Boolean
+}
 
-    companion object {
-        const val MESSAGE_CODE_LENGTH = DataType.I32.SIZE
-        const val MAX_ADEQUATE_MESSAGE_CODE = 1001
-
-        fun deserialize(buffer: ByteBuffer): Response {
-            if (buffer.remaining() < MESSAGE_CODE_LENGTH)
-                throw IllegalArgumentException("Message length is less than message code length")
-
-            if (buffer.order() != DataType.BYTE_ORDER)
-                throw IllegalArgumentException("Wrong byte order")
-
-            val messageCode = DataType.I32.deserialize(buffer)
-            if (messageCode > MAX_ADEQUATE_MESSAGE_CODE)
-                throw IllegalArgumentException("Not an adequate message code: $messageCode")
-
-            val deserializer = DESERIALIZER_ROUTINES.get(messageCode)
-                ?: throw UnexpectedMessageCodeException(messageCode)
-
-            return deserializer(buffer)
-        }
-
-        private val DESERIALIZER_ROUTINES = hashMapOf<Int, (ByteBuffer) -> Response>(
-            1 to { buffer ->
-                val isSuccess = DataType.Bool.deserialize(buffer)
-                if (isSuccess)
-                    Response.LoginSuccessful.deserialize(buffer)
-                else
-                    Response.LoginFailed.deserialize(buffer)
-            },
-            9 to { buffer -> SearchReply.deserialize(buffer) }
-        )
-    }
-
-    data class LoginSuccessful(val greet: String, val ip: Int) : Response() {
+sealed class ServerResponse : Response {
+    data class LoginSuccessful(val greet: String, val ip: Int) : ServerResponse() {
         override val isNotification = false
 
         companion object {
@@ -53,7 +23,7 @@ sealed class Response {
         }
     }
 
-    data class LoginFailed(val reason: String) : Response() {
+    data class LoginFailed(val reason: String) : ServerResponse() {
         override val isNotification = false
 
         companion object {
@@ -62,7 +32,9 @@ sealed class Response {
             )
         }
     }
+}
 
+sealed class PeerResponse : Response {
     data class SearchReply(
         val user: String,
         val ticket: Int,
@@ -70,7 +42,7 @@ sealed class Response {
         val slotfree: Boolean,
         val avgspeed: Int,
         val queueLength: Long
-    ) : Response() {
+    ) : PeerResponse() {
         override val isNotification = true
 
         companion object {
@@ -108,5 +80,54 @@ sealed class Response {
                 }
             }
         }
+    }
+}
+
+private typealias ResponseDeserializerRoutine = (ByteBuffer) -> Response
+private typealias ResponseDeserializerRoutines = HashMap<Int, ResponseDeserializerRoutine>
+
+class ResponseDeserializer private constructor(
+    val messageCodeLength: Int,
+    private val deserializers: ResponseDeserializerRoutines
+) {
+    private val messageCodeDeserializer: (ByteBuffer) -> Int = when (messageCodeLength) {
+        DataType.I32.SIZE -> { { DataType.I32.deserialize(it) } }
+        DataType.I8.SIZE -> { { DataType.I8.deserialize(it).toInt() } }
+        else -> throw IllegalArgumentException("Unexpected message code length: $messageCodeLength")
+    }
+    fun deserialize(buffer: ByteBuffer): Response {
+        if (buffer.order() != DataType.BYTE_ORDER)
+            throw IllegalArgumentException("Wrong byte order")
+
+        if (buffer.remaining() < messageCodeLength)
+            throw IllegalArgumentException("Message length is less than message code length")
+
+        val messageCode = messageCodeDeserializer(buffer)
+        val deserializer = deserializers.get(messageCode)
+            ?: throw UnexpectedMessageCodeException(messageCode)
+
+        return deserializer(buffer)
+    }
+
+    companion object {
+        fun server() = ResponseDeserializer(4, SERVER_DESERIALIZERS)
+        fun peerInit() = ResponseDeserializer(1, PEER_INIT_DESERIALIZERS)
+        fun peer() = ResponseDeserializer(4, PEER_DESERIALIZERS)
+
+        private val SERVER_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> Response>(
+            1 to { buffer ->
+                val isSuccess = DataType.Bool.deserialize(buffer)
+                if (isSuccess)
+                    ServerResponse.LoginSuccessful.deserialize(buffer)
+                else
+                    ServerResponse.LoginFailed.deserialize(buffer)
+            }
+        )
+
+        private val PEER_INIT_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> Response>()
+
+        private val PEER_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> Response>(
+            9 to { buffer -> PeerResponse.SearchReply.deserialize(buffer) }
+        )
     }
 }
