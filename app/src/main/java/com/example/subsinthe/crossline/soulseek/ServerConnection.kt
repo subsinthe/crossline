@@ -62,13 +62,20 @@ class ServerConnection(
                 buffer = messageLengthData.leftover
                 messageLengthData.product.order(DataType.BYTE_ORDER)
                 val messageLength = DataType.I32.deserialize(messageLengthData.product)
-                if (messageLength == 0)
-                    throw IllegalArgumentException("Unexpected message length: $messageLength")
                 LOG.fine("[Interpreter]: New message length: $messageLength")
 
                 val messageData = FixedSizeReader.read(buffer, input, messageLength)
                 buffer = messageData.leftover
+                messageData.product.order(DataType.BYTE_ORDER)
                 var message: Response? = null
+
+                if (messageLength < Response.MESSAGE_CODE_LENGTH) {
+                    LOG.warning(
+                        "[Interpreter]: Message length $messageLength is less than message code length"
+                    )
+                    continue
+                }
+
                 try {
                     message = Response.deserialize(messageData.product)
                 } catch (ex: Throwable) {

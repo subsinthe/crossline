@@ -8,15 +8,20 @@ sealed class Response {
     abstract val isNotification: Boolean
 
     companion object {
-        private const val MESSAGE_TYPE_LENGTH = DataType.I32.SIZE
+        const val MESSAGE_CODE_LENGTH = DataType.I32.SIZE
+        const val MAX_ADEQUATE_MESSAGE_CODE = 1001
 
         fun deserialize(buffer: ByteBuffer): Response {
-            if (buffer.remaining() < MESSAGE_TYPE_LENGTH)
+            if (buffer.remaining() < MESSAGE_CODE_LENGTH)
                 throw IllegalArgumentException("Message length is less than message code length")
 
-            buffer.order(DataType.BYTE_ORDER)
+            if (buffer.order() != DataType.BYTE_ORDER)
+                throw IllegalArgumentException("Wrong byte order")
 
             val messageCode = DataType.I32.deserialize(buffer)
+            if (messageCode > MAX_ADEQUATE_MESSAGE_CODE)
+                throw IllegalArgumentException("Not an adequate message code: $messageCode")
+
             val deserializer = DESERIALIZER_ROUTINES.get(messageCode)
                 ?: throw UnexpectedMessageCodeException(messageCode)
 
