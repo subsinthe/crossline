@@ -15,7 +15,7 @@ data class Credentials(val username: String, val password: String) {
     fun makeMd5(): String = String(Hex.encodeHex(DigestUtils.md5("$username$password")))
 }
 
-class Client private constructor(private val serverConnection: Connection) : Closeable {
+class Client private constructor(private val serverConnection: ServerConnection) : Closeable {
     private var ticketGenerator = 0
 
     companion object {
@@ -63,14 +63,14 @@ class Client private constructor(private val serverConnection: Connection) : Clo
         val iterator = Channel<String>()
         val token = serverConnection.subscribe { response ->
             when (response) {
-                is PeerResponse.SearchReply -> {
-                    if (response.ticket != ticket)
-                        return@subscribe
-                    for (result in response.results) {
-                        LOG.info("Received ${result.filename} from ${response.user}")
-                        iterator.send(result.filename)
-                    }
-                }
+                /* is PeerResponse.SearchReply -> { */
+                /*     if (response.ticket != ticket) */
+                /*         return@subscribe */
+                /*     for (result in response.results) { */
+                /*         LOG.info("Received ${result.filename} from ${response.user}") */
+                /*         iterator.send(result.filename) */
+                /*     } */
+                /* } */
             }
         }
         iterator.invokeOnClose { token.close() }

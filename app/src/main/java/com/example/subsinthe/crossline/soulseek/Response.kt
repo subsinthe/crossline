@@ -34,6 +34,8 @@ sealed class ServerResponse : Response {
     }
 }
 
+sealed class PeerInitResponse : Response
+
 sealed class PeerResponse : Response {
     data class SearchReply(
         val user: String,
@@ -83,19 +85,16 @@ sealed class PeerResponse : Response {
     }
 }
 
-private typealias ResponseDeserializerRoutine = (ByteBuffer) -> Response
-private typealias ResponseDeserializerRoutines = HashMap<Int, ResponseDeserializerRoutine>
-
-class ResponseDeserializer private constructor(
+class ResponseDeserializer<out Response_> private constructor(
     val messageCodeLength: Int,
-    private val deserializers: ResponseDeserializerRoutines
-) {
+    private val deserializers: HashMap<Int, (ByteBuffer) -> Response_>
+) where Response_ : Response {
     private val messageCodeDeserializer: (ByteBuffer) -> Int = when (messageCodeLength) {
         DataType.I32.SIZE -> { { DataType.I32.deserialize(it) } }
         DataType.I8.SIZE -> { { DataType.I8.deserialize(it).toInt() } }
         else -> throw IllegalArgumentException("Unexpected message code length: $messageCodeLength")
     }
-    fun deserialize(buffer: ByteBuffer): Response {
+    fun deserialize(buffer: ByteBuffer): Response_ {
         if (buffer.order() != DataType.BYTE_ORDER)
             throw IllegalArgumentException("Wrong byte order")
 
@@ -110,11 +109,11 @@ class ResponseDeserializer private constructor(
     }
 
     companion object {
-        fun server() = ResponseDeserializer(4, SERVER_DESERIALIZERS)
-        fun peerInit() = ResponseDeserializer(1, PEER_INIT_DESERIALIZERS)
-        fun peer() = ResponseDeserializer(4, PEER_DESERIALIZERS)
+        fun server() = ResponseDeserializer<ServerResponse>(4, SERVER_DESERIALIZERS)
+        fun peerInit() = ResponseDeserializer<PeerInitResponse>(1, PEER_INIT_DESERIALIZERS)
+        fun peer() = ResponseDeserializer<PeerResponse>(4, PEER_DESERIALIZERS)
 
-        private val SERVER_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> Response>(
+        private val SERVER_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> ServerResponse>(
             1 to { buffer ->
                 val isSuccess = DataType.Bool.deserialize(buffer)
                 if (isSuccess)
@@ -124,9 +123,9 @@ class ResponseDeserializer private constructor(
             }
         )
 
-        private val PEER_INIT_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> Response>()
+        private val PEER_INIT_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> PeerInitResponse>()
 
-        private val PEER_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> Response>(
+        private val PEER_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> PeerResponse>(
             9 to { buffer -> PeerResponse.SearchReply.deserialize(buffer) }
         )
     }

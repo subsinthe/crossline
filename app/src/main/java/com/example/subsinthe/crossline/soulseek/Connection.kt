@@ -13,38 +13,39 @@ import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.io.Closeable
 import java.nio.ByteBuffer
+import java.util.logging.Logger
 
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
 private const val RESPONSE_QUEUE_SIZE = 64
 
-class Connection private constructor(
+class Connection<in Request_, out Response_> private constructor(
     private val scope: CoroutineScope,
     private val socket: IStreamSocket,
-    private val responseDeserializer: ResponseDeserializer
-) : Closeable {
-    private val readQueue = Channel<Response>(RESPONSE_QUEUE_SIZE)
-    private val notifier = Multicast<Response>(scope, RESPONSE_QUEUE_SIZE)
-    private val dispatcher = scope.actor<Response> {
+    private val responseDeserializer: ResponseDeserializer<Response_>
+) : IConnection<Request_, Response_> where Request_ : Request, Response_ : Response {
+    private val readQueue = Channel<Response_>(RESPONSE_QUEUE_SIZE)
+    private val notifier = Multicast<Response_>(scope, RESPONSE_QUEUE_SIZE)
+    private val dispatcher = scope.actor<Response_> {
         dispatch(channel, readQueue, notifier.channel)
     }
     private val interpreter = scope.actor<ByteBuffer> { interpret(channel, dispatcher) }
     private val reader = scope.launch { read(scope, interpreter) }
 
     companion object {
-        fun server(scope: CoroutineScope, socket: IStreamSocket) = Connection(
+        fun server(scope: CoroutineScope, socket: IStreamSocket) = ServerConnection(
             scope, socket, ResponseDeserializer.server()
         )
 
-        private val LOG = loggerFor<Connection>()
+        private val LOG = Logger.getLogger(Connection::class.java.name)
     }
 
-    suspend fun write(request: Request) = socket.write(request.serialize())
+    override suspend fun write(request: Request_) = socket.write(request.serialize())
 
-    suspend fun read() = readQueue.receive()
+    override suspend fun read() = readQueue.receive()
 
-    suspend fun subscribe(handler: suspend (Response) -> Unit) = notifier.subscribe(handler)
+    override suspend fun subscribe(handler: suspend (Response_) -> Unit) =
+        notifier.subscribe(handler)
 
     override fun close() = socket.close()
 
@@ -60,7 +61,7 @@ class Connection private constructor(
 
     private suspend fun interpret(
         input: ReceiveChannel<ByteBuffer>,
-        output: SendChannel<Response>
+        output: SendChannel<Response_>
     ) {
         output.useOutput {
             var buffer = input.receive()
@@ -74,7 +75,7 @@ class Connection private constructor(
                 val messageData = FixedSizeReader.read(buffer, input, messageLength)
                 buffer = messageData.leftover
                 messageData.product.order(DataType.BYTE_ORDER)
-                var message: Response? = null
+                var message: Response_? = null
 
                 if (messageLength < responseDeserializer.messageCodeLength) {
                     LOG.warning(
@@ -94,9 +95,9 @@ class Connection private constructor(
     }
 
     private suspend fun dispatch(
-        input: ReceiveChannel<Response>,
-        output: SendChannel<Response>,
-        notifier: SendChannel<Response>
+        input: ReceiveChannel<Response_>,
+        output: SendChannel<Response_>,
+        notifier: SendChannel<Response_>
     ) {
         notifier.useOutput {
             output.useOutput {
@@ -108,6 +109,9 @@ class Connection private constructor(
         }
     }
 }
+
+typealias ServerConnection = Connection<Request, ServerResponse>
+typealias PeerConnection = Connection<Request, PeerResponse>
 
 private class FixedSizeReader {
     data class Data(val product: ByteBuffer, val leftover: ByteBuffer)
