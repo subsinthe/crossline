@@ -13,11 +13,11 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme" >
+        android:theme="@android:style/Theme.Material.NoActionBar" >
         <activity
             android:name="com.example.subsinthe.crossline.MainActivity"
             android:label="@string/app_name"
-            android:theme="@style/AppTheme.NoActionBar" >
+            android:theme="@android:style/Theme.Material.NoActionBar" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
