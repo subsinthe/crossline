@@ -1,7 +1,10 @@
 package com.example.subsinthe.crossline.soulseek
 
+import kotlin.collections.ArrayList
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+
+private typealias DeserializerRoutine<T> = (ByteBuffer) -> T
 
 sealed class DataType {
     abstract val size: Int
@@ -29,6 +32,18 @@ sealed class DataType {
             const val SIZE = Int.SIZE_BYTES
 
             fun deserialize(buffer: ByteBuffer) = buffer.int
+        }
+    }
+
+    class I64(private val value: Long) : DataType() {
+        override val size = SIZE
+
+        override fun serialize(buffer: ByteBuffer) { buffer.putLong(value) }
+
+        companion object {
+            const val SIZE = Long.SIZE_BYTES
+
+            fun deserialize(buffer: ByteBuffer) = buffer.long
         }
     }
 
@@ -60,6 +75,28 @@ sealed class DataType {
                 val storage = ByteArray(length)
                 buffer.get(storage)
                 return String(storage)
+            }
+        }
+    }
+
+    class List(private val list: ArrayList<DataType>) : DataType() {
+        override val size = I32.SIZE + list.size
+
+        override fun serialize(buffer: ByteBuffer) {
+            I32(list.size).serialize(buffer)
+            list.forEach { it.serialize(buffer) }
+        }
+
+        companion object {
+            fun <T> deserialize(
+                deserializer: DeserializerRoutine<T>,
+                buffer: ByteBuffer
+            ): ArrayList<T> {
+                val length = I32.deserialize(buffer)
+                val result = ArrayList<T>()
+                for (i in 0..length)
+                    result.add(deserializer(buffer))
+                return result
             }
         }
     }
