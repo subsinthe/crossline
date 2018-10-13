@@ -2,11 +2,11 @@ package com.example.subsinthe.crossline.util
 
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
-import kotlinx.coroutines.experimental.CoroutineScope
-import kotlinx.coroutines.experimental.launch
-import kotlinx.coroutines.experimental.channels.SendChannel
-import kotlinx.coroutines.experimental.channels.actor
-import kotlinx.coroutines.experimental.channels.consumeEach
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.actor
+import kotlinx.coroutines.channels.consumeEach
 import java.io.Closeable
 import java.util.UUID
 import java.util.logging.Logger

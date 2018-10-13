@@ -6,11 +6,11 @@ import io.vertx.core.buffer.Buffer
 import io.vertx.core.net.NetSocket
 import io.vertx.kotlin.core.net.NetClientOptions
 import io.vertx.kotlin.coroutines.awaitResult
-import kotlinx.coroutines.experimental.CoroutineScope
-import kotlinx.coroutines.experimental.channels.Channel
-import kotlinx.coroutines.experimental.channels.actor
-import kotlinx.coroutines.experimental.channels.consumeEach
-import kotlinx.coroutines.experimental.channels.sendBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.actor
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.channels.sendBlocking
 import java.nio.ByteBuffer
 
 class VertxSocketFactory(val coroutineScope: CoroutineScope) : ISocketFactory {

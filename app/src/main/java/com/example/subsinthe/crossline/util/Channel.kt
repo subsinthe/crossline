@@ -1,6 +1,6 @@
 package com.example.subsinthe.crossline.util
 
-import kotlinx.coroutines.experimental.channels.SendChannel
+import kotlinx.coroutines.channels.SendChannel
 
 suspend fun <T> SendChannel<T>.useOutput(body: suspend () -> Unit) {
     var ex: Throwable? = null

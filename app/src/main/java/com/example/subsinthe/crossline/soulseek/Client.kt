@@ -2,7 +2,9 @@ package com.example.subsinthe.crossline.soulseek
 
 import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.util.loggerFor
-import kotlinx.coroutines.experimental.CoroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.codec.digest.DigestUtils
 import java.io.Closeable
