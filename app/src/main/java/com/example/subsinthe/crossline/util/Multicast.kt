@@ -43,14 +43,12 @@ class Multicast<T>(private val scope: CoroutineScope, queueCapacity: Int) {
         val uuid = UUID.randomUUID()
         handlers.put(uuid, CancellableHandler(handler))
         Token {
-            override fun close() {
-                scope.launch {
-                    val handler = handlers.remove(uuid)
-                    if (handler != null)
-                        handler.cancel()
-                    else
-                        LOG.severe("Internal error: Handler for $uuid was already removed")
-                }
+            scope.launch {
+                val handler = handlers.remove(uuid)
+                if (handler != null)
+                    handler.cancel()
+                else
+                    LOG.severe("Internal error: Handler for $uuid was already removed")
             }
         }
     }.await()
