@@ -38,16 +38,12 @@ sealed class Response {
         override val isNotification = false
 
         companion object {
-            fun deserialize(buffer: ByteBuffer): LoginSuccessful {
-                try {
-                    return LoginSuccessful(
-                        greet = DataType.Str.deserialize(buffer),
-                        ip = DataType.I32.deserialize(buffer)
-                    )
-                } finally {
+            fun deserialize(buffer: ByteBuffer) = LoginSuccessful(
+                greet = DataType.Str.deserialize(buffer),
+                ip = DataType.I32.deserialize(buffer).also {
                     DataType.I8.deserialize(buffer)
                 }
-            }
+            )
         }
     }
 
