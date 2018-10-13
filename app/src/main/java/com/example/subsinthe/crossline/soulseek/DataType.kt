@@ -14,7 +14,7 @@ sealed class DataType {
         override fun serialize(buffer: ByteBuffer) { buffer.put(value) }
 
         companion object {
-            const val SIZE = Character.BYTES
+            const val SIZE = Byte.SIZE_BYTES
 
             fun deserialize(buffer: ByteBuffer) = buffer.get()
         }
@@ -26,7 +26,7 @@ sealed class DataType {
         override fun serialize(buffer: ByteBuffer) { buffer.putInt(value) }
 
         companion object {
-            const val SIZE = Integer.BYTES
+            const val SIZE = Int.SIZE_BYTES
 
             fun deserialize(buffer: ByteBuffer) = buffer.int
         }
@@ -48,7 +48,7 @@ sealed class DataType {
         override val size = I32.SIZE + value.size
 
         override fun serialize(buffer: ByteBuffer) {
-            buffer.putInt(value.size)
+            I32(value.size).serialize(buffer)
             buffer.put(value)
         }
 
