@@ -110,8 +110,8 @@ class Connection<in Request_, out Response_> private constructor(
     }
 }
 
-typealias ServerConnection = Connection<Request, ServerResponse>
-typealias PeerConnection = Connection<Request, PeerResponse>
+typealias ServerConnection = Connection<ServerRequest, ServerResponse>
+typealias PeerConnection = Connection<PeerRequest, PeerResponse>
 
 private class FixedSizeReader {
     data class Data(val product: ByteBuffer, val leftover: ByteBuffer)

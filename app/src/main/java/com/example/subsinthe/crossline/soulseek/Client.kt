@@ -35,7 +35,7 @@ class Client private constructor(private val serverConnection: ServerConnection)
         LOG.info("login()")
 
         serverConnection.write(
-            Request.Login(
+            ServerRequest.Login(
                 username = credentials.username,
                 password = credentials.password,
                 digest = credentials.makeMd5(),

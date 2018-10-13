@@ -2,16 +2,16 @@ package com.example.subsinthe.crossline.soulseek
 
 import java.nio.ByteBuffer
 
-sealed class Request {
+abstract class Request {
     abstract val code: Int
     abstract val stream: Iterable<DataType>
 
     private companion object {
-        const val REQUEST_HEADER_LENGTH = 2 * DataType.I32.SIZE
+        const val HEADER_LENGTH = 2 * DataType.I32.SIZE
     }
 
     fun serialize(): ByteBuffer {
-        val bufferSize = stream.fold(REQUEST_HEADER_LENGTH) { sum, data -> sum + data.size }
+        val bufferSize = stream.fold(HEADER_LENGTH) { sum, data -> sum + data.size }
         val buffer = ByteBuffer.allocate(bufferSize).also { it.order(DataType.BYTE_ORDER) }
 
         DataType.build(bufferSize - DataType.I32.SIZE).serialize(buffer)
@@ -20,9 +20,11 @@ sealed class Request {
 
         return buffer
     }
+}
 
+sealed class ServerRequest : Request() {
     class Login(username: String, password: String, digest: String, version: Int, minorVersion: Int)
-            : Request() {
+            : ServerRequest() {
         override val code = 1
 
         override val stream: Iterable<DataType> = listOf(
@@ -34,7 +36,7 @@ sealed class Request {
         )
     }
 
-    class FileSearch(ticket: Int, query: String) : Request() {
+    class FileSearch(ticket: Int, query: String) : ServerRequest() {
         override val code = 26
 
         override val stream: Iterable<DataType> = listOf(
@@ -42,3 +44,5 @@ sealed class Request {
         )
     }
 }
+
+sealed class PeerRequest : Request()
