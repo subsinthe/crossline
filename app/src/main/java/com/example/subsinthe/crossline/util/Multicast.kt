@@ -3,6 +3,7 @@ package com.example.subsinthe.crossline.util
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
@@ -39,7 +40,7 @@ class Multicast<T>(private val scope: CoroutineScope, queueCapacity: Int) {
 
     val channel: SendChannel<T> = worker
 
-    suspend fun subscribe(handler: suspend (T) -> Unit) = scope.launch {
+    suspend fun subscribe(handler: suspend (T) -> Unit) = scope.async {
         val uuid = UUID.randomUUID()
         handlers.put(uuid, CancellableHandler(handler))
         object : Closeable {
@@ -53,7 +54,7 @@ class Multicast<T>(private val scope: CoroutineScope, queueCapacity: Int) {
                 }
             }
         }
-    }
+    }.await()
 
     private companion object { private val LOG: Logger = Logger.getLogger("Multicast") }
 }
