@@ -36,7 +36,7 @@ class ServerConnection(
         return readQueue.receive()
     }
 
-    suspend fun subscrbe(handler: suspend (Response) -> Unit) = notifier.subscribe(handler)
+    suspend fun subscribe(handler: suspend (Response) -> Unit) = notifier.subscribe(handler)
 
     override fun close() = socket.close()
 
