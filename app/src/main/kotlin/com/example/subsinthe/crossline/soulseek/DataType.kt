@@ -32,6 +32,18 @@ sealed class DataType {
         }
     }
 
+    class Bool(private val value: Boolean) : DataType() {
+        override val size = SIZE
+
+        override fun serialize(buffer: ByteBuffer) { I8(if (value) 1 else 0).serialize(buffer) }
+
+        companion object {
+            const val SIZE = I8.SIZE
+
+            fun deserialize(buffer: ByteBuffer) = DataType.I8.deserialize(buffer).compareTo(1) == 0
+        }
+    }
+
     class Str(val value: ByteArray) : DataType() {
         override val size = I32.SIZE + value.size
 

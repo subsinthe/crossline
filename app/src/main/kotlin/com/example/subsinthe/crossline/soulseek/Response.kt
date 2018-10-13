@@ -25,7 +25,7 @@ sealed class Response {
 
         private val DESERIALIZER_ROUTINES = hashMapOf<Int, (ByteBuffer) -> Response>(
             1 to { buffer ->
-                val isSuccess = (DataType.I8.deserialize(buffer).compareTo(1) == 0)
+                val isSuccess = DataType.Bool.deserialize(buffer)
                 if (isSuccess) {
                     val greet = DataType.Str.deserialize(buffer)
                     val ip = DataType.I32.deserialize(buffer)
