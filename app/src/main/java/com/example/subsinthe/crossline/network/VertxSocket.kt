@@ -1,16 +1,20 @@
 package com.example.subsinthe.crossline.network
 
 import com.example.subsinthe.crossline.util.loggerFor
+import io.vertx.core.AsyncResult
+import io.vertx.core.Handler
 import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.net.NetSocket
 import io.vertx.kotlin.core.net.NetClientOptions
-import io.vertx.kotlin.coroutines.awaitResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.sendBlocking
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 import java.nio.ByteBuffer
 
 class VertxSocketFactory(val coroutineScope: CoroutineScope) : ISocketFactory {
@@ -21,7 +25,7 @@ class VertxSocketFactory(val coroutineScope: CoroutineScope) : ISocketFactory {
 
     override suspend fun createTcpConnection(host: String, port: Int): IStreamSocket {
         val netClient = vertxContext.createNetClient(NetClientOptions(connectTimeout = 10000))
-        val socket: NetSocket = awaitResult { netClient.connect(port, host, it) }
+        val socket: NetSocket = vx { netClient.connect(port, host, it) }
         try {
             return VertxStreamSocket(coroutineScope, socket)
         } catch (throwable: Throwable) {
@@ -66,4 +70,20 @@ private class VertxStreamSocket(
     override suspend fun write(buffer: ByteBuffer) { writer.send(buffer) }
 
     private companion object { val LOG = loggerFor<VertxStreamSocket>() }
+}
+
+private typealias VertxHandler<T> = Handler<AsyncResult<T>>
+private typealias VertxCallback<T> = (VertxHandler<T>) -> Unit
+
+private suspend inline fun <T> vx(crossinline callback: VertxCallback<T>) = suspendCoroutine<T> {
+    continuation ->
+    callback(object : VertxHandler<T> {
+        override fun handle(event: AsyncResult<T>) {
+            if (event.succeeded()) {
+                continuation.resume(event.result())
+            } else {
+                continuation.resumeWithException(event.cause())
+            }
+        }
+    })
 }
