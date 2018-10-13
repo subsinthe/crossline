@@ -8,7 +8,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.channels.consumeEach
-import java.io.Closeable
 import java.util.UUID
 import java.util.logging.Logger
 
@@ -43,7 +42,7 @@ class Multicast<T>(private val scope: CoroutineScope, queueCapacity: Int) {
     suspend fun subscribe(handler: suspend (T) -> Unit) = scope.async {
         val uuid = UUID.randomUUID()
         handlers.put(uuid, CancellableHandler(handler))
-        object : Closeable {
+        Token {
             override fun close() {
                 scope.launch {
                     val handler = handlers.remove(uuid)
