@@ -26,21 +26,38 @@ sealed class Response {
         private val DESERIALIZER_ROUTINES = hashMapOf<Int, (ByteBuffer) -> Response>(
             1 to { buffer ->
                 val isSuccess = DataType.Bool.deserialize(buffer)
-                if (isSuccess) {
-                    val greet = DataType.Str.deserialize(buffer)
-                    val ip = DataType.I32.deserialize(buffer)
-                    val ignored = DataType.I8.deserialize(buffer)
-                    Response.LoginSuccessful(greet, ip)
-                } else
-                    Response.LoginFailed(reason = DataType.Str.deserialize(buffer))
+                if (isSuccess)
+                    Response.LoginSuccessful.deserialize(buffer)
+                else
+                    Response.LoginFailed.deserialize(buffer)
             }
         )
     }
 
     data class LoginSuccessful(val greet: String, val ip: Int) : Response() {
         override val isNotification = false
+
+        companion object {
+            fun deserialize(buffer: ByteBuffer): LoginSuccessful {
+                try {
+                    return LoginSuccessful(
+                        greet = DataType.Str.deserialize(buffer),
+                        ip = DataType.I32.deserialize(buffer)
+                    )
+                } finally {
+                    DataType.I8.deserialize(buffer)
+                }
+            }
+        }
     }
+
     data class LoginFailed(val reason: String) : Response() {
         override val isNotification = false
+
+        companion object {
+            fun deserialize(buffer: ByteBuffer) = LoginFailed(
+                reason = DataType.Str.deserialize(buffer)
+            )
+        }
     }
 }
