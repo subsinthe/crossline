@@ -17,6 +17,7 @@ import java.nio.ByteBuffer
 import java.util.logging.Logger
 
 private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
+private const val MAX_ADEQUATE_MESSAGE_LENGTH = 100 * 1024 * 1024
 private const val RESPONSE_QUEUE_SIZE = 64
 
 class Connection<in Request_, out Response_> private constructor(
@@ -71,6 +72,13 @@ class Connection<in Request_, out Response_> private constructor(
                 messageLengthData.product.order(DataType.BYTE_ORDER)
                 val messageLength = DataType.I32.deserialize(messageLengthData.product)
                 LOG.fine("[Interpreter]: New message length: $messageLength")
+
+                if (messageLength > MAX_ADEQUATE_MESSAGE_LENGTH) {
+                    LOG.warning(
+                        "Message length ($messageLength) is larger than adequate message length"
+                    )
+                    continue
+                }
 
                 val messageData = FixedSizeReader.read(buffer, input, messageLength)
                 buffer = messageData.leftover
