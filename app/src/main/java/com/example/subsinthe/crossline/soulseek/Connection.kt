@@ -16,10 +16,6 @@ import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.util.logging.Logger
 
-private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
-private const val MAX_ADEQUATE_MESSAGE_LENGTH = 100 * 1024 * 1024
-private const val RESPONSE_QUEUE_SIZE = 64
-
 class Connection<in Request_, out Response_> private constructor(
     private val scope: CoroutineScope,
     private val socket: IStreamSocket,
@@ -39,6 +35,10 @@ class Connection<in Request_, out Response_> private constructor(
         )
 
         private val LOG = Logger.getLogger(Connection::class.java.name)
+
+        private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
+        private const val MAX_ADEQUATE_MESSAGE_LENGTH = 100 * 1024 * 1024
+        private const val RESPONSE_QUEUE_SIZE = 64
     }
 
     override suspend fun write(request: Request_) = socket.write(request.serialize())
