@@ -8,7 +8,7 @@ sealed class DataType {
 
     abstract fun serialize(buffer: ByteBuffer)
 
-    class I8(val value: Byte) : DataType() {
+    class I8(private val value: Byte) : DataType() {
         override val size = SIZE
 
         override fun serialize(buffer: ByteBuffer) { buffer.put(value) }
@@ -20,7 +20,7 @@ sealed class DataType {
         }
     }
 
-    class I32(val value: Int) : DataType() {
+    class I32(private val value: Int) : DataType() {
         override val size = SIZE
 
         override fun serialize(buffer: ByteBuffer) { buffer.putInt(value) }
@@ -44,7 +44,7 @@ sealed class DataType {
         }
     }
 
-    class Str(val value: ByteArray) : DataType() {
+    class Str(private val value: ByteArray) : DataType() {
         override val size = I32.SIZE + value.size
 
         override fun serialize(buffer: ByteBuffer) {
