@@ -16,6 +16,8 @@ data class Credentials(val username: String, val password: String) {
 }
 
 class Client private constructor(private val connection: ServerConnection) : Closeable {
+    private var ticketGenerator = 0
+
     companion object {
         private val LOG = loggerFor<Client>()
 
@@ -27,10 +29,7 @@ class Client private constructor(private val connection: ServerConnection) : Clo
         ) = Client(ServerConnection(scope, socketFactory.createTcpConnection(host, port)))
     }
 
-    override fun close() {
-        connection.close()
-        fileSearchToken?.close()
-    }
+    override fun close() = connection.close()
 
     suspend fun login(credentials: Credentials) {
         LOG.info("login()")
@@ -54,5 +53,28 @@ class Client private constructor(private val connection: ServerConnection) : Clo
                 throw LoginFailedException(response.reason)
             }
         }
+    }
+
+    suspend fun fileSearch(query: String): ReceiveChannel<String> {
+        val ticket = ticketGenerator++
+
+        LOG.info("fileSearch($query, ticket=$ticket)")
+
+        val iterator = Channel<String>()
+        val token = connection.subscribe { response ->
+            when (response) {
+                is Response.SearchReply -> {
+                    if (response.ticket != ticket)
+                        return@subscribe
+                    for (result in response.results) {
+                        LOG.info("Received ${result.filename} from ${response.user}")
+                        iterator.send(result.filename)
+                    }
+                }
+            }
+        }
+        iterator.invokeOnClose { token.close() }
+
+        return iterator
     }
 }
