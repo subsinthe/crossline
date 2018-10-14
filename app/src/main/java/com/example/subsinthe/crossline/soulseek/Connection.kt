@@ -61,8 +61,7 @@ class Connection<in Request_, out Response_> private constructor(
                 ResponseDeserializer.peer()
             )
         }.closeOnError { connection ->
-            connection.write(PeerRequest.PierceFirewall(token))
-            connection
+            connection.apply { write(PeerRequest.PierceFirewall(token)) }
         }
 
         private val LOG = Logger.getLogger(Connection::class.java.name)
