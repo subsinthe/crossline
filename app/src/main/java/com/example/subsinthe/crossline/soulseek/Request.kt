@@ -4,18 +4,22 @@ import java.nio.ByteBuffer
 
 abstract class Request {
     abstract val code: Int
+    abstract val codeLength: Int
     abstract val stream: Iterable<DataType>
 
-    private companion object {
-        const val HEADER_LENGTH = 2 * DataType.I32.SIZE
-    }
-
     fun serialize(): ByteBuffer {
-        val bufferSize = stream.fold(HEADER_LENGTH) { sum, data -> sum + data.size }
-        val buffer = ByteBuffer.allocate(bufferSize).also { it.order(DataType.BYTE_ORDER) }
+        val codeData = when (codeLength) {
+            DataType.I8.SIZE -> DataType.I8(code.toByte())
+            DataType.I32.SIZE -> DataType.I32(code)
+            else -> throw AssertionError("Unexpected code length: $codeLength")
+        }
+        val messageLength = stream.fold(codeData.size) { sum, data -> sum + data.size }
+        val messageLengthData = DataType.I32(messageLength)
+        val buffer = ByteBuffer.allocate(messageLengthData.size + messageLength)
+        buffer.order(DataType.BYTE_ORDER)
 
-        DataType.build(bufferSize - DataType.I32.SIZE).serialize(buffer)
-        DataType.build(code).serialize(buffer)
+        messageLengthData.serialize(buffer)
+        codeData.serialize(buffer)
         stream.forEach { it.serialize(buffer) }
 
         return buffer
@@ -23,6 +27,8 @@ abstract class Request {
 }
 
 sealed class ServerRequest : Request() {
+    override val codeLength = DataType.I32.SIZE
+
     class Login(username: String, password: String, digest: String, version: Int, minorVersion: Int)
             : ServerRequest() {
         override val code = 1
