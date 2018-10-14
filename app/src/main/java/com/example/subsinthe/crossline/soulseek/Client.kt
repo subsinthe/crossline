@@ -15,7 +15,11 @@ data class Credentials(val username: String, val password: String) {
     fun makeMd5(): String = String(Hex.encodeHex(DigestUtils.md5("$username$password")))
 }
 
-class Client private constructor(private val serverConnection: ServerConnection) : Closeable {
+class Client private constructor(
+    private val scope: CoroutineScope,
+    private val socketFactory: ISocketFactory,
+    private val serverConnection: ServerConnection
+) : Closeable {
     private var ticketGenerator = 0
 
     companion object {
@@ -26,7 +30,7 @@ class Client private constructor(private val serverConnection: ServerConnection)
             socketFactory: ISocketFactory,
             host: String,
             port: Int
-        ) = Client(Connection.server(scope, socketFactory, host, port))
+        ) = Client(scope, socketFactory, Connection.server(scope, socketFactory, host, port))
     }
 
     override fun close() = serverConnection.close()

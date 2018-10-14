@@ -63,7 +63,7 @@ class MainActivity : Activity() {
                 searchJob?.cancel()
 
                 searchJob = uiScope.launch {
-                    SoulseekClient.build(uiScope, socketFactory).use { client ->
+                    SoulseekClient.build(uiScope, socketFactory, "server.slsknet.org", 2242).use { client ->
                         client.login(credentials)
                         var iter: ReceiveChannel<String>? = null
                         try {

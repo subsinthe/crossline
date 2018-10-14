@@ -1,5 +1,6 @@
 package com.example.subsinthe.crossline.soulseek
 
+import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.network.IStreamSocket
 import com.example.subsinthe.crossline.util.Multicast
 import com.example.subsinthe.crossline.util.loggerFor
@@ -33,16 +34,24 @@ class Connection<in Request_, out Response_> private constructor(
     private val reader = scope.launch { read(scope, interpreter) }
 
     companion object {
-        fun server(
+        suspend fun server(
             scope: CoroutineScope,
             socketFactory: ISocketFactory,
-            host: String = "server.slsknet.org",
-            port: Int = 2242
-        ) = Connection(
-            scope,
-            socketFactory.createTcpConnection(host, port),
-            ResponseDeserializer.server()
-        )
+            host: String,
+            port: Int
+        ): ServerConnection {
+            val socket = socketFactory.createTcpConnection(host, port)
+            try {
+                return ServerConnection(
+                    scope,
+                    socket,
+                    ResponseDeserializer.server()
+                )
+            } catch (ex: Throwable) {
+                socket.close()
+                throw ex
+            }
+        }
 
         private val LOG = Logger.getLogger(Connection::class.java.name)
 
