@@ -65,20 +65,48 @@ class Client private constructor(
         LOG.info("fileSearch($query, ticket=$ticket)")
 
         val iterator = Channel<String>()
-        val token = serverConnection.subscribe { response ->
-            when (response) {
-                /* is PeerResponse.SearchReply -> { */
-                /*     if (response.ticket != ticket) */
-                /*         return@subscribe */
-                /*     for (result in response.results) { */
-                /*         LOG.info("Received ${result.filename} from ${response.user}") */
-                /*         iterator.send(result.filename) */
-                /*     } */
-                /* } */
-            }
+        val token = serverConnection.subscribeTo<ServerResponse.ConnectToPeer> { response ->
+            onFileSearchConnectToPeer(response, iterator, ticket)
         }
         iterator.invokeOnClose { token.close() }
 
+        try {
+            serverConnection.write(ServerRequest.FileSearch(ticket, query))
+        } catch (ex: Throwable) {
+            iterator.cancel()
+            throw ex
+        }
         return iterator
+    }
+
+    private suspend fun onFileSearchConnectToPeer(
+        peerData: ServerResponse.ConnectToPeer,
+        output: Channel<String>,
+        ticket: Int
+    ) {
+        LOG.info("onFileSearchConnectToPeer($peerData, ticket=$ticket)")
+
+        Connection.peer(
+            scope = scope,
+            socketFactory = socketFactory,
+            host = peerData.ip,
+            port = peerData.port,
+            token = peerData.token
+        ).use { peerConnection ->
+            val iterator = peerConnection.forEach<PeerResponse.SearchReply>()
+            output.invokeOnClose { iterator.cancel() }
+
+            for (searchReply in iterator) {
+                if (searchReply.ticket != ticket) {
+                    LOG.info("Skipping unwanted ticket ${searchReply.ticket}")
+                    continue
+                }
+                for (result in searchReply.results) {
+                    LOG.info("Got ${result.filename} from ${searchReply.user}")
+
+                    output.send(result.filename)
+                }
+            }
+        }
     }
 }
