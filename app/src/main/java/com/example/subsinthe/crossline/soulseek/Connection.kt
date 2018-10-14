@@ -3,6 +3,7 @@ package com.example.subsinthe.crossline.soulseek
 import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.network.IStreamSocket
 import com.example.subsinthe.crossline.util.Multicast
+import com.example.subsinthe.crossline.util.closeOnError
 import com.example.subsinthe.crossline.util.loggerFor
 import com.example.subsinthe.crossline.util.transferTo
 import com.example.subsinthe.crossline.util.useOutput
@@ -39,18 +40,12 @@ class Connection<in Request_, out Response_> private constructor(
             socketFactory: ISocketFactory,
             host: String,
             port: Int
-        ): ServerConnection {
-            val socket = socketFactory.createTcpConnection(host, port)
-            try {
-                return ServerConnection(
-                    scope,
-                    socket,
-                    ResponseDeserializer.server()
-                )
-            } catch (ex: Throwable) {
-                socket.close()
-                throw ex
-            }
+        ) = socketFactory.createTcpConnection(host, port).closeOnError { socket ->
+            ServerConnection(
+                scope,
+                socket,
+                ResponseDeserializer.server()
+            )
         }
 
         suspend fun peer(
@@ -59,25 +54,15 @@ class Connection<in Request_, out Response_> private constructor(
             host: String,
             port: Int,
             token: Long
-        ): PeerConnection {
-            val socket = socketFactory.createTcpConnection(host, port)
-            val connection = try {
-                PeerConnection(
-                    scope,
-                    socket,
-                    ResponseDeserializer.peer()
-                )
-            } catch (ex: Throwable) {
-                socket.close()
-                throw ex
-            }
-            try {
-                connection.write(PeerRequest.PierceFirewall(token))
-            } catch (ex: Throwable) {
-                connection.close()
-                throw ex
-            }
-            return connection
+        ) = socketFactory.createTcpConnection(host, port).closeOnError { socket ->
+            PeerConnection(
+                scope,
+                socket,
+                ResponseDeserializer.peer()
+            )
+        }.closeOnError { connection ->
+            connection.write(PeerRequest.PierceFirewall(token))
+            connection
         }
 
         private val LOG = Logger.getLogger(Connection::class.java.name)
