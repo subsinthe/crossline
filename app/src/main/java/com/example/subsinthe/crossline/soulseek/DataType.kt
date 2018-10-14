@@ -23,6 +23,22 @@ sealed class DataType {
         }
     }
 
+    class U8(private val value: Int) : DataType() {
+        init {
+            if (0 > value || value > 255)
+                throw IllegalArgumentException("Attempt to serialize $value as U8")
+        }
+        override val size = SIZE
+
+        override fun serialize(buffer: ByteBuffer) { buffer.put(value.toByte()) }
+
+        companion object {
+            const val SIZE = Byte.SIZE_BYTES
+
+            fun deserialize(buffer: ByteBuffer) = buffer.get().toInt() and 0xff
+        }
+    }
+
     class I32(private val value: Int) : DataType() {
         override val size = SIZE
 
@@ -32,6 +48,22 @@ sealed class DataType {
             const val SIZE = Int.SIZE_BYTES
 
             fun deserialize(buffer: ByteBuffer) = buffer.int
+        }
+    }
+
+    class U32(private val value: Long) : DataType() {
+        init {
+            if (0 > value || value > 4294967296)
+                throw IllegalArgumentException("Attempt to serialize $value as U32")
+        }
+        override val size = SIZE
+
+        override fun serialize(buffer: ByteBuffer) { buffer.putInt(value.toInt()) }
+
+        companion object {
+            const val SIZE = Int.SIZE_BYTES
+
+            fun deserialize(buffer: ByteBuffer) = buffer.get().toLong() and 0xffffffff
         }
     }
 
@@ -75,6 +107,36 @@ sealed class DataType {
                 val storage = ByteArray(length)
                 buffer.get(storage)
                 return String(storage)
+            }
+        }
+    }
+
+    class Ip(value: String) : DataType() {
+        private val split = value.split(".")
+        init {
+            if (split.size != PARTS_COUNT)
+                throw IllegalArgumentException("Split size ${split.size} is not equal to ip parts count")
+        }
+
+        override val size = SIZE
+
+        override fun serialize(buffer: ByteBuffer) {
+            for (part in split)
+                U8(part.toInt()).serialize(buffer)
+        }
+
+        companion object {
+            const val PARTS_COUNT = 4
+            const val SIZE = PARTS_COUNT * I8.SIZE
+
+            fun deserialize(buffer: ByteBuffer): String {
+                val storage = arrayOf(
+                    U8.deserialize(buffer),
+                    U8.deserialize(buffer),
+                    U8.deserialize(buffer),
+                    U8.deserialize(buffer)
+                )
+                return "${storage[3]}.${storage[2]}.${storage[1]}.${storage[0]}"
             }
         }
     }
