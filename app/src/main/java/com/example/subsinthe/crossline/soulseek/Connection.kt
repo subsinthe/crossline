@@ -33,8 +33,15 @@ class Connection<in Request_, out Response_> private constructor(
     private val reader = scope.launch { read(scope, interpreter) }
 
     companion object {
-        fun server(scope: CoroutineScope, socket: IStreamSocket) = ServerConnection(
-            scope, socket, ResponseDeserializer.server()
+        fun server(
+            scope: CoroutineScope,
+            socketFactory: ISocketFactory,
+            host: String = "server.slsknet.org",
+            port: Int = 2242
+        ) = Connection(
+            scope,
+            socketFactory.createTcpConnection(host, port),
+            ResponseDeserializer.server()
         )
 
         private val LOG = Logger.getLogger(Connection::class.java.name)

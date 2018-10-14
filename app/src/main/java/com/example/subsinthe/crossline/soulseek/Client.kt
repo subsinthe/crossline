@@ -24,9 +24,9 @@ class Client private constructor(private val serverConnection: ServerConnection)
         suspend fun build(
             scope: CoroutineScope,
             socketFactory: ISocketFactory,
-            host: String = "server.slsknet.org",
-            port: Int = 2242
-        ) = Client(Connection.server(scope, socketFactory.createTcpConnection(host, port)))
+            host: String,
+            port: Int
+        ) = Client(Connection.server(scope, socketFactory, host, port))
     }
 
     override fun close() = serverConnection.close()
