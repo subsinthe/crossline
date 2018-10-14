@@ -1,5 +1,6 @@
 package com.example.subsinthe.crossline.soulseek
 
+import com.example.subsinthe.crossline.util.Zip
 import kotlin.collections.HashMap
 import java.nio.ByteBuffer
 
@@ -10,13 +11,13 @@ interface Response {
 }
 
 sealed class ServerResponse : Response {
-    data class LoginSuccessful(val greet: String, val ip: Int) : ServerResponse() {
+    data class LoginSuccessful(val greet: String, val ip: String) : ServerResponse() {
         override val isNotification = false
 
         companion object {
             fun deserialize(buffer: ByteBuffer) = LoginSuccessful(
                 greet = DataType.Str.deserialize(buffer),
-                ip = DataType.I32.deserialize(buffer).also {
+                ip = DataType.Ip.deserialize(buffer).also {
                     DataType.I8.deserialize(buffer)
                 }
             )
@@ -32,9 +33,29 @@ sealed class ServerResponse : Response {
             )
         }
     }
-}
 
-sealed class PeerInitResponse : Response
+    data class ConnectToPeer(
+        val username: String,
+        val type: String,
+        val ip: String,
+        val port: Int,
+        val token: Long,
+        val privileged: Boolean
+    ) : ServerResponse() {
+        override val isNotification = true
+
+        companion object {
+            fun deserialize(buffer: ByteBuffer) = ConnectToPeer(
+                username = DataType.Str.deserialize(buffer),
+                type = DataType.Str.deserialize(buffer),
+                ip = DataType.Ip.deserialize(buffer),
+                port = DataType.I32.deserialize(buffer),
+                token = DataType.U32.deserialize(buffer),
+                privileged = DataType.Bool.deserialize(buffer)
+            )
+        }
+    }
+}
 
 sealed class PeerResponse : Response {
     data class SearchReply(
@@ -48,14 +69,17 @@ sealed class PeerResponse : Response {
         override val isNotification = true
 
         companion object {
-            fun deserialize(buffer: ByteBuffer) = SearchReply(
-                user = DataType.Str.deserialize(buffer),
-                ticket = DataType.I32.deserialize(buffer),
-                results = DataType.List.deserialize<Result>({ Result.deserialize(it) }, buffer),
-                slotfree = DataType.Bool.deserialize(buffer),
-                avgspeed = DataType.I32.deserialize(buffer),
-                queueLength = DataType.I64.deserialize(buffer)
-            )
+            fun deserialize(buffer: ByteBuffer) =
+                Zip.decompress(buffer).let { buffer ->
+                SearchReply(
+                    user = DataType.Str.deserialize(buffer),
+                    ticket = DataType.I32.deserialize(buffer),
+                    results = DataType.List.deserialize<Result>({ Result.deserialize(it) }, buffer),
+                    slotfree = DataType.Bool.deserialize(buffer),
+                    avgspeed = DataType.I32.deserialize(buffer),
+                    queueLength = DataType.I64.deserialize(buffer)
+                )
+            }
         }
         data class Result(
             val filename: String,
@@ -110,7 +134,6 @@ class ResponseDeserializer<out Response_> private constructor(
 
     companion object {
         fun server() = ResponseDeserializer<ServerResponse>(4, SERVER_DESERIALIZERS)
-        fun peerInit() = ResponseDeserializer<PeerInitResponse>(1, PEER_INIT_DESERIALIZERS)
         fun peer() = ResponseDeserializer<PeerResponse>(4, PEER_DESERIALIZERS)
 
         private val SERVER_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> ServerResponse>(
@@ -120,10 +143,9 @@ class ResponseDeserializer<out Response_> private constructor(
                     ServerResponse.LoginSuccessful.deserialize(buffer)
                 else
                     ServerResponse.LoginFailed.deserialize(buffer)
-            }
+            },
+            18 to { buffer -> ServerResponse.ConnectToPeer.deserialize(buffer) }
         )
-
-        private val PEER_INIT_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> PeerInitResponse>()
 
         private val PEER_DESERIALIZERS = hashMapOf<Int, (ByteBuffer) -> PeerResponse>(
             9 to { buffer -> PeerResponse.SearchReply.deserialize(buffer) }

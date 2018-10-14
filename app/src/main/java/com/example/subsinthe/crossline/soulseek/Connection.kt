@@ -53,6 +53,33 @@ class Connection<in Request_, out Response_> private constructor(
             }
         }
 
+        suspend fun peer(
+            scope: CoroutineScope,
+            socketFactory: ISocketFactory,
+            host: String,
+            port: Int,
+            token: Long
+        ): PeerConnection {
+            val socket = socketFactory.createTcpConnection(host, port)
+            val connection = try {
+                PeerConnection(
+                    scope,
+                    socket,
+                    ResponseDeserializer.peer()
+                )
+            } catch (ex: Throwable) {
+                socket.close()
+                throw ex
+            }
+            try {
+                connection.write(PeerRequest.PierceFirewall(token))
+            } catch (ex: Throwable) {
+                connection.close()
+                throw ex
+            }
+            return connection
+        }
+
         private val LOG = Logger.getLogger(Connection::class.java.name)
 
         private const val MESSAGE_LENGTH_LENGTH = DataType.I32.SIZE
@@ -68,6 +95,19 @@ class Connection<in Request_, out Response_> private constructor(
         notifier.subscribe(handler)
 
     override fun close() = socket.close()
+
+    suspend inline fun <reified T> subscribeTo(
+        crossinline handler: suspend (T) -> Unit
+    ) = subscribe { response ->
+        when (response::class) { T::class -> handler(response as T) }
+    }
+
+    suspend inline fun <reified T> forEach(): ReceiveChannel<T> {
+        val iterator = Channel<T>()
+        val token = subscribeTo<T> { response -> iterator.send(response) }
+        iterator.invokeOnClose { token.close() }
+        return iterator
+    }
 
     private suspend fun read(scope: CoroutineScope, output: SendChannel<ByteBuffer>) {
         output.useOutput {

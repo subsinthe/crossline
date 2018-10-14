@@ -51,4 +51,13 @@ sealed class ServerRequest : Request() {
     }
 }
 
-sealed class PeerRequest : Request()
+sealed class PeerRequest : Request() {
+    override val codeLength = DataType.I32.SIZE
+
+    class PierceFirewall(token: Long) : PeerRequest() {
+        override val code = 0
+        override val codeLength = DataType.I8.SIZE
+
+        override val stream: Iterable<DataType> = listOf(DataType.U32(token))
+    }
+}
