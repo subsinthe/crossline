@@ -1,9 +1,14 @@
 package com.example.subsinthe.crossline
 
-import android.app.Activity
 import android.os.Bundle
-import android.support.v7.widget.RecyclerView
-import android.widget.SearchView
+import android.support.design.widget.NavigationView
+import android.support.v4.view.GravityCompat
+import android.support.v4.widget.DrawerLayout
+import android.support.v7.app.ActionBarDrawerToggle
+import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.Toolbar
+import android.view.MenuItem
+import android.view.Menu
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.loggerFor
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -11,13 +16,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.android.Main
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.consumeEach
 import kotlin.coroutines.CoroutineContext
 import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
-import com.example.subsinthe.crossline.soulseek.Client as SoulseekClient
 import com.example.subsinthe.crossline.soulseek.Credentials
 
 private class DefaultExceptionHandler {
@@ -41,7 +42,7 @@ private class IoScope : CoroutineScope {
         Dispatchers.IO + DefaultExceptionHandler.get()
 }
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
     private val uiScope = UiScope()
     private val ioScope = IoScope()
     private val socketFactory = SocketFactory(ioScope)
@@ -55,31 +56,34 @@ class MainActivity : Activity() {
 
         setContentView(R.layout.activity_main)
 
-        val searchView = findViewById<SearchView>(R.id.search_view)
-        val recyclerView = findViewById<RecyclerView>(R.id.search_results)
+        val toolbar = findViewById<Toolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
+        supportActionBar!!.apply {
+            setDisplayShowTitleEnabled(false)
+            setHomeButtonEnabled(true)
+            setDisplayHomeAsUpEnabled(true)
+        }
 
-        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String): Boolean {
-                searchJob?.cancel()
+        val drawerLayout = findViewById<DrawerLayout>(R.id.drawer_layout)
+        val navigationView = findViewById<NavigationView>(R.id.navigation_view)
+        val toggle = ActionBarDrawerToggle(
+            this,
+            drawerLayout,
+            toolbar,
+            R.string.navigation_drawer_open,
+            R.string.navigation_drawer_close
+        )
+        drawerLayout.addDrawerListener(toggle)
+        toggle.syncState()
 
-                searchJob = uiScope.launch {
-                    SoulseekClient.build(uiScope, socketFactory, "server.slsknet.org", 2242).use { client ->
-                        client.login(credentials)
-                        var iter: ReceiveChannel<String>? = null
-                        try {
-                            iter = client.fileSearch(query)
-                            iter.consumeEach {}
-                        } finally {
-                            iter?.cancel()
-                        }
-                    }
+        navigationView.setNavigationItemSelectedListener(
+            object : NavigationView.OnNavigationItemSelectedListener {
+                override fun onNavigationItemSelected(item: MenuItem): Boolean {
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    return true
                 }
-
-                return true
             }
-
-            override fun onQueryTextChange(query: String) = true
-        })
+        )
     }
 
     override fun onDestroy() {
@@ -87,5 +91,18 @@ class MainActivity : Activity() {
 
         searchJob?.cancel()
         socketFactory.close()
+    }
+
+     override fun onBackPressed() {
+        val drawerLayout = findViewById<DrawerLayout>(R.id.drawer_layout)
+        if (drawerLayout.isDrawerOpen(GravityCompat.START))
+            drawerLayout.closeDrawer(GravityCompat.START)
+        else
+            super.onBackPressed()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        getMenuInflater().inflate(R.menu.main, menu)
+        return true
     }
 }
