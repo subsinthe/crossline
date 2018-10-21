@@ -2,7 +2,7 @@ package com.example.subsinthe.crossline.util
 
 import kotlinx.coroutines.channels.SendChannel
 
-suspend fun <T> SendChannel<T>.useOutput(body: suspend () -> Unit) {
+suspend inline fun <T> SendChannel<T>.useOutput(body: () -> Unit) {
     var ex: Throwable? = null
     try {
         body()
