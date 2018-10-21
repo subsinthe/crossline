@@ -25,7 +25,7 @@ class Connection<in Request_, out Response_> private constructor(
     private val scope: CoroutineScope,
     private val socket: IStreamSocket,
     private val responseDeserializer: ResponseDeserializer<Response_>
-) : IConnection<Request_, Response_> where Request_ : Request, Response_ : Response {
+) where Request_ : Request, Response_ : Response {
     private val readQueue = Channel<Response_>(RESPONSE_QUEUE_SIZE)
     private val notifier = Multicast<Response_>(scope)
     private val dispatcher = scope.actor<Response_> {
