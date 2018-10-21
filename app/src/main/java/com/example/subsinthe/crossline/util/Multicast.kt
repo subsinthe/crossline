@@ -21,7 +21,7 @@ private class CancellableHandler<T>(val wrapped: suspend (T) -> Unit) {
     fun cancel() { isCancelled = true }
 }
 
-class Multicast<T>(private val scope: CoroutineScope) {
+class Multicast<T>(private val scope: CoroutineScope) : IObservable<T> {
     private val handlers = HashMap<UUID, CancellableHandler<T>>()
     private val worker = scope.actor<T> {
         consumeEach {
@@ -37,7 +37,7 @@ class Multicast<T>(private val scope: CoroutineScope) {
 
     val channel: SendChannel<T> = worker
 
-    suspend fun subscribe(handler: suspend (T) -> Unit) = scope.async {
+    override suspend fun subscribe(handler: suspend (T) -> Unit) = scope.async {
         val uuid = UUID.randomUUID()
         handlers.put(uuid, CancellableHandler(handler))
         Token {
