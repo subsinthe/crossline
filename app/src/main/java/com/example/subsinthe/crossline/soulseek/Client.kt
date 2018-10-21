@@ -49,11 +49,11 @@ class Client private constructor(
                 minorVersion = 1
             )
         )
-        val response = serverConnection.forEach<ServerResponse.LoginSuccessful>().use { successIterator ->
-            serverConnection.forEach<ServerResponse.LoginFailed>().use { failureIterator ->
+        val response = serverConnection.forEach<ServerResponse.LoginSuccessful>().use { successIt ->
+            serverConnection.forEach<ServerResponse.LoginFailed>().use { failureIt ->
                 select<ServerResponse> {
-                    successIterator.onReceive { response -> response }
-                    failureIterator.onReceive { response -> response }
+                    successIt.onReceive { r -> r }
+                    failureIt.onReceive { r -> r }
                 }
             }
         }
