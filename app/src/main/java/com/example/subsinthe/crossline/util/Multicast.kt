@@ -1,6 +1,5 @@
 package com.example.subsinthe.crossline.util
 
-import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -26,8 +25,7 @@ class Multicast<T>(private val scope: CoroutineScope) {
     private val handlers = HashMap<UUID, CancellableHandler<T>>()
     private val worker = scope.actor<T> {
         consumeEach {
-            val copy = ArrayList(handlers.values)
-            for (handler in copy) scope.launch {
+            for (handler in handlers.values) scope.launch {
                 try {
                     handler(it)
                 } catch (ex: Throwable) {
