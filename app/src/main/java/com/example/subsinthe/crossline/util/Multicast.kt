@@ -51,5 +51,7 @@ class Multicast<T>(private val scope: CoroutineScope) {
         }
     }.await()
 
-    private companion object { private val LOG: Logger = Logger.getLogger("Multicast") }
+    private companion object {
+        val LOG: Logger = Logger.getLogger(Multicast::class.java.name)
+    }
 }
