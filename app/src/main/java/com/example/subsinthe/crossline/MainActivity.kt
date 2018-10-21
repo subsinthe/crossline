@@ -73,6 +73,7 @@ class MainActivity : AppCompatActivity() {
             setDisplayShowTitleEnabled(false)
             setHomeButtonEnabled(true)
             setDisplayHomeAsUpEnabled(true)
+            setHomeAsUpIndicator(R.drawable.ic_dehaze)
         }
 
         val drawerLayout = findViewById<DrawerLayout>(R.id.drawer_layout)
