@@ -6,20 +6,28 @@ import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
 import android.support.v7.app.ActionBarDrawerToggle
 import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.RecyclerView
+import android.support.v7.widget.SearchView
 import android.support.v7.widget.Toolbar
 import android.view.MenuItem
 import android.view.Menu
+import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
+import com.example.subsinthe.crossline.streaming.IStreamingService
+import com.example.subsinthe.crossline.streaming.FilesystemStreamingService
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
+import com.example.subsinthe.crossline.util.ObservableArrayList
+import com.example.subsinthe.crossline.util.ObservableValue
+import com.example.subsinthe.crossline.util.TokenPool
+import com.example.subsinthe.crossline.util.Token
 import com.example.subsinthe.crossline.util.loggerFor
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.android.Main
 import kotlin.coroutines.CoroutineContext
-import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
-import com.example.subsinthe.crossline.soulseek.Credentials
 
 private class DefaultExceptionHandler {
     companion object {
@@ -46,8 +54,10 @@ class MainActivity : AppCompatActivity() {
     private val uiScope = UiScope()
     private val ioScope = IoScope()
     private val socketFactory = SocketFactory(ioScope)
-    private val credentials = Credentials(username = "u", password = "p")
-    private var searchJob: Job? = null
+    private val streamingService = ObservableValue<IStreamingService>(
+        FilesystemStreamingService(uiScope), uiScope
+    )
+    private val tokens = TokenPool()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,11 +99,12 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
 
-        searchJob?.cancel()
+        tokens.close()
+        streamingService.value.close()
         socketFactory.close()
     }
 
-     override fun onBackPressed() {
+    override fun onBackPressed() {
         val drawerLayout = findViewById<DrawerLayout>(R.id.drawer_layout)
         if (drawerLayout.isDrawerOpen(GravityCompat.START))
             drawerLayout.closeDrawer(GravityCompat.START)
@@ -103,6 +114,26 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         getMenuInflater().inflate(R.menu.main, menu)
+
+        val mainActivity = this
+        uiScope.launch {
+            val viewManager = LinearLayoutManager(mainActivity)
+            val searchResults = ObservableArrayList<MusicTrack>(uiScope)
+            val searchModel = SearchModel.build(searchResults)
+            mainActivity.tokens += Token(searchModel)
+
+            findViewById<RecyclerView>(R.id.search_results).apply {
+                layoutManager = viewManager
+                adapter = searchModel
+            }
+
+            val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
+            val searchQueryListener = SearchQueryListener.build(
+                uiScope, searchResults, streamingService
+            )
+            mainActivity.tokens += Token(searchQueryListener)
+            searchView.setOnQueryTextListener(searchQueryListener)
+        }
         return true
     }
 }
