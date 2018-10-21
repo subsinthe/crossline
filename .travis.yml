@@ -27,3 +27,4 @@ deploy:
     file: app/build/outputs/apk/debug/app-debug.apk
     on:
         repo: subsinthe/crossline
+        tags: true
