@@ -2,6 +2,7 @@ package com.example.subsinthe.crossline.soulseek
 
 import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.network.IStreamSocket
+import com.example.subsinthe.crossline.util.AsyncIterator
 import com.example.subsinthe.crossline.util.Multicast
 import com.example.subsinthe.crossline.util.closeOnError
 import com.example.subsinthe.crossline.util.loggerFor
@@ -80,11 +81,11 @@ class Connection<in Request_, out Response_> private constructor(
         when (response::class) { T::class -> handler(response as T) }
     }
 
-    inline fun <reified T> forEach(): ReceiveChannel<T> {
+    inline fun <reified T> forEach(): AsyncIterator<T> {
         val iterator = Channel<T>()
         val token = subscribeTo<T>(scope.pack { response -> iterator.send(response) })
         iterator.invokeOnClose { token.close() }
-        return iterator
+        return AsyncIterator(iterator)
     }
 
     private suspend fun read(scope: CoroutineScope, output: SendChannel<ByteBuffer>) {

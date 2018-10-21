@@ -1,11 +1,11 @@
 package com.example.subsinthe.crossline.soulseek
 
 import com.example.subsinthe.crossline.network.ISocketFactory
+import com.example.subsinthe.crossline.util.AsyncIterator
 import com.example.subsinthe.crossline.util.loggerFor
 import com.example.subsinthe.crossline.util.pack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.selects.select
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.codec.digest.DigestUtils
@@ -49,16 +49,13 @@ class Client private constructor(
                 minorVersion = 1
             )
         )
-        val successIterator = serverConnection.forEach<ServerResponse.LoginSuccessful>()
-        val failureIterator = serverConnection.forEach<ServerResponse.LoginFailed>()
-        val response = try {
-            select<ServerResponse> {
-                successIterator.onReceive { response -> response }
-                failureIterator.onReceive { response -> response }
+        val response = serverConnection.forEach<ServerResponse.LoginSuccessful>().use { successIterator ->
+            serverConnection.forEach<ServerResponse.LoginFailed>().use { failureIterator ->
+                select<ServerResponse> {
+                    successIterator.onReceive { response -> response }
+                    failureIterator.onReceive { response -> response }
+                }
             }
-        } finally {
-            successIterator.cancel()
-            failureIterator.cancel()
         }
         when (response) {
             is ServerResponse.LoginSuccessful -> {
@@ -71,24 +68,20 @@ class Client private constructor(
         }
     }
 
-    suspend fun fileSearch(query: String): ReceiveChannel<String> {
+    suspend fun fileSearch(query: String): AsyncIterator<String> {
         val ticket = ticketGenerator++
 
         LOG.info("fileSearch($query, ticket=$ticket)")
 
-        val iterator = Channel<String>()
+        val channel = Channel<String>()
         val token = serverConnection.subscribeTo<ServerResponse.ConnectToPeer>(scope.pack
-            { response -> onFileSearchConnectToPeer(response, iterator, ticket) }
+            { response -> onFileSearchConnectToPeer(response, channel, ticket) }
         )
-        iterator.invokeOnClose { token.close() }
+        channel.invokeOnClose { token.close() }
 
-        try {
-            serverConnection.write(ServerRequest.FileSearch(ticket, query))
-        } catch (ex: Throwable) {
-            iterator.cancel()
-            throw ex
+        return AsyncIterator(channel).also {
+            it.closeOnError { serverConnection.write(ServerRequest.FileSearch(ticket, query)) }
         }
-        return iterator
     }
 
     private suspend fun onFileSearchConnectToPeer(
@@ -105,18 +98,17 @@ class Client private constructor(
             port = peerData.port,
             token = peerData.token
         ).use { peerConnection ->
-            val iterator = peerConnection.forEach<PeerResponse.SearchReply>()
-            output.invokeOnClose { iterator.cancel() }
+            peerConnection.forEach<PeerResponse.SearchReply>().use { iterator ->
+                for (searchReply in iterator) {
+                    if (searchReply.ticket != ticket) {
+                        LOG.info("Skipping unwanted ticket ${searchReply.ticket}")
+                        continue
+                    }
+                    for (result in searchReply.results) {
+                        LOG.info("Got ${result.filename} from ${searchReply.user}")
 
-            for (searchReply in iterator) {
-                if (searchReply.ticket != ticket) {
-                    LOG.info("Skipping unwanted ticket ${searchReply.ticket}")
-                    continue
-                }
-                for (result in searchReply.results) {
-                    LOG.info("Got ${result.filename} from ${searchReply.user}")
-
-                    output.send(result.filename)
+                        output.send(result.filename)
+                    }
                 }
             }
         }
