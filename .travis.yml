@@ -24,5 +24,5 @@ deploy:
     api_key:
         secure: Q0G+KEPDiOZYz9RnZeGdk0Fti5grGq/uJzLdPi19NLdlMR0rJYpMa1+W3Z3VKy0DvmUxqRwYl1S2O0tCe6PbVr8/loxtAhj4F6m1vwqzbKZKt38mkt6hWTrrqZ2Sdg2e4w0ymcmktPISx962kfw65G1DuiqJe3rmcDDnT2NJ9MDTQl2Zc4wpuiTqpEq7vh5oH3UbZrTNGh/j+WxbS9LIFI26thKvEc2L2cMTy2Hautf5V4PjN3wiiaB1Lb8FYz2pYc0PLHjR9HjxKYzF4zW29MyAY0bI3sJOy8KznxKyrh/vNcbK2WSxudIU3Kt023DD+x4wbij19CzFuSPLENpmqiRhOGfG3TZunCGPhO6ZLJNAvt9MshZ3gLcSGoJZBCBpA9DjkHBtod92PlZjxnC2tNajWYQSurk4ecNGmQDF1Prw7KP4N7Hxg7BFiEGMbTOkTpjLluI/ipolfSzSu4xfjlDtIRj0MQlSXRsYNcbXnGxYzEzJF5Kvdl498meEqedxI/Gf8n/jZZfIfrHn8ghtxKHP5Mu3Jx1rs7nl6X2ajfGb9/DpbNKM5+mHOOSmP+bSDzyH8m0dryg7caaHlEEG6qD2e4KmjchG8lvomGxF7JbGZkNoapA8jihoJi33hqbozRjxkbhClCqfme22E+DfJ9NvPQn/D355qpWfaMx8u3Q=
     file: app/build/outputs/apk/debug/app-debug.apk
-        on:
-            repo: subsinthe/crossline
+    on:
+        repo: subsinthe/crossline
