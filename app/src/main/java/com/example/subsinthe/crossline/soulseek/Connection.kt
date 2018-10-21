@@ -13,7 +13,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
-import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.Closeable
@@ -28,12 +27,8 @@ class Connection<in Request_, out Response_> private constructor(
     private val socket: IStreamSocket,
     private val responseDeserializer: ResponseDeserializer<Response_>
 ) : Closeable where Request_ : Request, Response_ : Response {
-    private val readQueue = Channel<Response_>(RESPONSE_QUEUE_SIZE)
     private val notifier = Multicast<Response_>()
-    private val dispatcher = scope.actor<Response_> {
-        dispatch(channel, readQueue)
-    }
-    private val interpreter = scope.actor<ByteBuffer> { interpret(channel, dispatcher) }
+    private val interpreter = scope.actor<ByteBuffer> { interpret(channel) }
     private val reader = scope.launch { read(scope, interpreter) }
 
     companion object {
@@ -77,8 +72,6 @@ class Connection<in Request_, out Response_> private constructor(
 
     suspend fun write(request: Request_) = socket.write(request.serialize())
 
-    suspend fun read() = readQueue.receive()
-
     fun subscribe(handler: (Response_) -> Unit) = notifier.subscribe(handler)
 
     inline fun <reified T> subscribeTo(
@@ -104,60 +97,40 @@ class Connection<in Request_, out Response_> private constructor(
         }
     }
 
-    private suspend fun interpret(
-        input: ReceiveChannel<ByteBuffer>,
-        output: SendChannel<Response_>
-    ) {
-        output.useOutput {
-            var buffer = input.receive()
-            while (true) {
-                val messageLengthData = FixedSizeReader.read(buffer, input, MESSAGE_LENGTH_LENGTH)
-                buffer = messageLengthData.leftover
-                messageLengthData.product.order(DataType.BYTE_ORDER)
-                val messageLength = DataType.I32.deserialize(messageLengthData.product)
-                LOG.fine("[Interpreter]: New message length: $messageLength")
+    private suspend fun interpret(input: ReceiveChannel<ByteBuffer>) {
+        var buffer = input.receive()
+        while (true) {
+            val messageLengthData = FixedSizeReader.read(buffer, input, MESSAGE_LENGTH_LENGTH)
+            buffer = messageLengthData.leftover
+            messageLengthData.product.order(DataType.BYTE_ORDER)
+            val messageLength = DataType.I32.deserialize(messageLengthData.product)
+            LOG.fine("[Interpreter]: New message length: $messageLength")
 
-                if (messageLength > MAX_ADEQUATE_MESSAGE_LENGTH) {
-                    LOG.warning(
-                        "[Interpreter]: Message length $messageLength is larger than adequate message length"
-                    )
-                    continue
-                }
-
-                val messageData = FixedSizeReader.read(buffer, input, messageLength)
-                buffer = messageData.leftover
-                messageData.product.order(DataType.BYTE_ORDER)
-                var message: Response_? = null
-
-                if (messageLength < responseDeserializer.messageCodeLength) {
-                    LOG.warning(
-                        "[Interpreter]: Message length $messageLength is less than message code length"
-                    )
-                    continue
-                }
-
-                try {
-                    message = responseDeserializer.deserialize(messageData.product)
-                } catch (ex: Throwable) {
-                    LOG.warning("[Interpreter] Failed to deserialize reponse: $ex")
-                }
-                message?.let { output.send(it) }
+            if (messageLength > MAX_ADEQUATE_MESSAGE_LENGTH) {
+                LOG.warning(
+                    "[Interpreter]: Message length $messageLength is larger than adequate message length"
+                )
+                continue
             }
-        }
-    }
 
-    private suspend fun dispatch(
-        input: ReceiveChannel<Response_>,
-        output: SendChannel<Response_>
-    ) {
-        output.useOutput {
-            input.consumeEach {
-                LOG.fine("[Dispatcher] New response: $it")
-                if (it.isNotification)
-                    notifier(it)
-                else
-                    output.send(it)
+            val messageData = FixedSizeReader.read(buffer, input, messageLength)
+            buffer = messageData.leftover
+            messageData.product.order(DataType.BYTE_ORDER)
+            var message: Response_? = null
+
+            if (messageLength < responseDeserializer.messageCodeLength) {
+                LOG.warning(
+                    "[Interpreter]: Message length $messageLength is less than message code length"
+                )
+                continue
             }
+
+            try {
+                message = responseDeserializer.deserialize(messageData.product)
+            } catch (ex: Throwable) {
+                LOG.warning("[Interpreter] Failed to deserialize reponse: $ex")
+            }
+            message?.let { notifier(it) }
         }
     }
 }

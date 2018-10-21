@@ -6,6 +6,7 @@ import com.example.subsinthe.crossline.util.pack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.selects.select
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.codec.digest.DigestUtils
 import java.io.Closeable
@@ -48,7 +49,17 @@ class Client private constructor(
                 minorVersion = 1
             )
         )
-        val response = serverConnection.read()
+        val successIterator = serverConnection.forEach<ServerResponse.LoginSuccessful>()
+        val failureIterator = serverConnection.forEach<ServerResponse.LoginFailed>()
+        val response = try {
+            select<ServerResponse> {
+                successIterator.onReceive { response -> response }
+                failureIterator.onReceive { response -> response }
+            }
+        } finally {
+            successIterator.cancel()
+            failureIterator.cancel()
+        }
         when (response) {
             is ServerResponse.LoginSuccessful -> {
                 LOG.info("Successfully logged in. Server says ${response.greet}")

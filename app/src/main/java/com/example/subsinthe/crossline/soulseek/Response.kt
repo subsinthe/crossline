@@ -6,14 +6,10 @@ import java.nio.ByteBuffer
 
 class UnexpectedMessageCodeException(code: Int) : Exception("Unexpected message code $code")
 
-interface Response {
-    val isNotification: Boolean
-}
+interface Response
 
 sealed class ServerResponse : Response {
     data class LoginSuccessful(val greet: String, val ip: String) : ServerResponse() {
-        override val isNotification = false
-
         companion object {
             fun deserialize(buffer: ByteBuffer) = LoginSuccessful(
                 greet = DataType.Str.deserialize(buffer),
@@ -25,8 +21,6 @@ sealed class ServerResponse : Response {
     }
 
     data class LoginFailed(val reason: String) : ServerResponse() {
-        override val isNotification = false
-
         companion object {
             fun deserialize(buffer: ByteBuffer) = LoginFailed(
                 reason = DataType.Str.deserialize(buffer)
@@ -42,8 +36,6 @@ sealed class ServerResponse : Response {
         val token: Long,
         val privileged: Boolean
     ) : ServerResponse() {
-        override val isNotification = true
-
         companion object {
             fun deserialize(buffer: ByteBuffer) = ConnectToPeer(
                 username = DataType.Str.deserialize(buffer),
@@ -66,8 +58,6 @@ sealed class PeerResponse : Response {
         val avgspeed: Int,
         val queueLength: Long
     ) : PeerResponse() {
-        override val isNotification = true
-
         companion object {
             fun deserialize(buffer: ByteBuffer) =
                 Zip.decompress(buffer).let { buffer ->
