@@ -1,23 +1,17 @@
 package com.example.subsinthe.crossline.util
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+class ObservableValue<T>(private var impl_: T) : IObservableValue<T> {
+    private val changed = Multicast<T>()
 
-class ObservableValue<T>(
-    private var impl_: T,
-    private val scope: CoroutineScope
-) : IObservableValue<T> {
-    private val changed = Multicast<T>(scope)
+    override var value
+        get() = impl_
+        set(value: T) {
+            impl_ = value
+            changed(impl_)
+        }
 
-    override val value get() = impl_
-
-    override suspend fun subscribe(handler: suspend (T) -> Unit): Token {
-        scope.launch { handler(value) }
+    override fun subscribe(handler: (T) -> Unit): Token {
+        handler(value)
         return changed.subscribe(handler)
-    }
-
-    override suspend fun set(value: T) {
-        impl_ = value
-        changed.channel.send(impl_)
     }
 }

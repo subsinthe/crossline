@@ -1,33 +1,27 @@
 package com.example.subsinthe.crossline
 
 import android.support.v7.widget.SearchView
-import com.example.subsinthe.crossline.util.IStreamingService
+import com.example.subsinthe.crossline.streaming.IMusicSearchEngine
+import com.example.subsinthe.crossline.streaming.IStreamingService
+import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.util.IObservableList
 import com.example.subsinthe.crossline.util.IObservableValue
-import com.example.subsinthe.crossline.util.Token
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.consumeEach
 import java.io.Closeable
 
-class SearchQueryListener private constructor(
+class SearchQueryListener(
     private val scope: CoroutineScope,
-    private val searchResults: IObservableList<MusicTrack>
+    private val searchResults: IObservableList<MusicTrack>,
+    streamingService: IObservableValue<IStreamingService>
 ) : SearchView.OnQueryTextListener, Closeable {
     private lateinit var searchEngine: IMusicSearchEngine
-    private lateinit var searchEngineConnection: Token
-    private var searchJob: Job? = null
-
-    companion object {
-        suspend fun build(
-            scope: CoroutineScope,
-            searchResults: IObservableList<MusicTrack>,
-            streamingService: IObservableValue<IStreamingService>
-        ) = SearchQueryListener(scope, searchResults).apply {
-            searchEngineConnection = streamingService.subscribe { onStreamingServiceChanged(it) }
-        }
+    private val searchEngineConnection = streamingService.subscribe {
+        onStreamingServiceChanged(it)
     }
+    private var searchJob: Job? = null
 
     override fun onQueryTextChange(query: String): Boolean {
         return true
@@ -35,10 +29,9 @@ class SearchQueryListener private constructor(
 
     override fun onQueryTextSubmit(query: String): Boolean {
         searchJob?.cancel()
+        searchResults.clear()
 
         searchJob = scope.launch {
-            searchResults.clear()
-
             searchEngine.search(query).use { iterator ->
                 iterator.consumeEach { musicTrack -> searchResults.add(musicTrack) }
             }
@@ -51,7 +44,7 @@ class SearchQueryListener private constructor(
         searchJob?.cancel()
     }
 
-    private suspend fun onStreamingServiceChanged(streamingService: IStreamingService) {
+    private fun onStreamingServiceChanged(streamingService: IStreamingService) {
         searchJob?.cancel()
         searchResults.clear()
 

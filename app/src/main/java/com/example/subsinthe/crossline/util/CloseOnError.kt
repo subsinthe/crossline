@@ -2,7 +2,7 @@ package com.example.subsinthe.crossline.util
 
 import java.io.Closeable
 
-suspend inline fun <T : Closeable?, R> T.closeOnError(block: (T) -> R): R {
+inline fun <T : Closeable?, R> T.closeOnError(block: (T) -> R): R {
     try {
         return block(this)
     } catch (ex: Throwable) {

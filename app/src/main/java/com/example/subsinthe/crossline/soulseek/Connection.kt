@@ -5,6 +5,7 @@ import com.example.subsinthe.crossline.network.IStreamSocket
 import com.example.subsinthe.crossline.util.Multicast
 import com.example.subsinthe.crossline.util.closeOnError
 import com.example.subsinthe.crossline.util.loggerFor
+import com.example.subsinthe.crossline.util.pack
 import com.example.subsinthe.crossline.util.transferTo
 import com.example.subsinthe.crossline.util.useOutput
 import kotlinx.coroutines.CoroutineScope
@@ -15,6 +16,7 @@ import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.Closeable
 import java.nio.ByteBuffer
 import java.util.logging.Logger
 
@@ -22,14 +24,14 @@ typealias ServerConnection = Connection<ServerRequest, ServerResponse>
 typealias PeerConnection = Connection<PeerRequest, PeerResponse>
 
 class Connection<in Request_, out Response_> private constructor(
-    private val scope: CoroutineScope,
+    val scope: CoroutineScope,
     private val socket: IStreamSocket,
     private val responseDeserializer: ResponseDeserializer<Response_>
-) where Request_ : Request, Response_ : Response {
+) : Closeable where Request_ : Request, Response_ : Response {
     private val readQueue = Channel<Response_>(RESPONSE_QUEUE_SIZE)
-    private val notifier = Multicast<Response_>(scope)
+    private val notifier = Multicast<Response_>()
     private val dispatcher = scope.actor<Response_> {
-        dispatch(channel, readQueue, notifier.channel)
+        dispatch(channel, readQueue)
     }
     private val interpreter = scope.actor<ByteBuffer> { interpret(channel, dispatcher) }
     private val reader = scope.launch { read(scope, interpreter) }
@@ -71,24 +73,23 @@ class Connection<in Request_, out Response_> private constructor(
         private const val RESPONSE_QUEUE_SIZE = 64
     }
 
-    override suspend fun write(request: Request_) = socket.write(request.serialize())
-
-    override suspend fun read() = readQueue.receive()
-
-    override suspend fun subscribe(handler: suspend (Response_) -> Unit) =
-        notifier.subscribe(handler)
-
     override fun close() = socket.close()
 
-    suspend inline fun <reified T> subscribeTo(
-        crossinline handler: suspend (T) -> Unit
+    suspend fun write(request: Request_) = socket.write(request.serialize())
+
+    suspend fun read() = readQueue.receive()
+
+    fun subscribe(handler: (Response_) -> Unit) = notifier.subscribe(handler)
+
+    inline fun <reified T> subscribeTo(
+        crossinline handler: (T) -> Unit
     ) = subscribe { response ->
         when (response::class) { T::class -> handler(response as T) }
     }
 
-    suspend inline fun <reified T> forEach(): ReceiveChannel<T> {
+    inline fun <reified T> forEach(): ReceiveChannel<T> {
         val iterator = Channel<T>()
-        val token = subscribeTo<T> { response -> iterator.send(response) }
+        val token = subscribeTo<T>(scope.pack { response -> iterator.send(response) })
         iterator.invokeOnClose { token.close() }
         return iterator
     }
@@ -147,15 +148,15 @@ class Connection<in Request_, out Response_> private constructor(
 
     private suspend fun dispatch(
         input: ReceiveChannel<Response_>,
-        output: SendChannel<Response_>,
-        notifier: SendChannel<Response_>
+        output: SendChannel<Response_>
     ) {
-        notifier.useOutput {
-            output.useOutput {
-                input.consumeEach {
-                    LOG.fine("[Dispatcher] New response: $it")
-                    (if (it.isNotification) notifier else output).send(it)
-                }
+        output.useOutput {
+            input.consumeEach {
+                LOG.fine("[Dispatcher] New response: $it")
+                if (it.isNotification)
+                    notifier(it)
+                else
+                    output.send(it)
             }
         }
     }

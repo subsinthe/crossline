@@ -15,6 +15,7 @@ import android.view.Menu
 import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
 import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.FilesystemStreamingService
+import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.ObservableArrayList
 import com.example.subsinthe.crossline.util.ObservableValue
@@ -55,7 +56,7 @@ class MainActivity : AppCompatActivity() {
     private val ioScope = IoScope()
     private val socketFactory = SocketFactory(ioScope)
     private val streamingService = ObservableValue<IStreamingService>(
-        FilesystemStreamingService(uiScope), uiScope
+        FilesystemStreamingService(uiScope)
     )
     private val tokens = TokenPool()
 
@@ -118,8 +119,8 @@ class MainActivity : AppCompatActivity() {
         val mainActivity = this
         uiScope.launch {
             val viewManager = LinearLayoutManager(mainActivity)
-            val searchResults = ObservableArrayList<MusicTrack>(uiScope)
-            val searchModel = SearchModel.build(searchResults)
+            val searchResults = ObservableArrayList<MusicTrack>()
+            val searchModel = SearchModel(searchResults)
             mainActivity.tokens += Token(searchModel)
 
             findViewById<RecyclerView>(R.id.search_results).apply {
@@ -128,7 +129,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
-            val searchQueryListener = SearchQueryListener.build(
+            val searchQueryListener = SearchQueryListener(
                 uiScope, searchResults, streamingService
             )
             mainActivity.tokens += Token(searchQueryListener)

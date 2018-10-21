@@ -2,6 +2,7 @@ package com.example.subsinthe.crossline.soulseek
 
 import com.example.subsinthe.crossline.network.ISocketFactory
 import com.example.subsinthe.crossline.util.loggerFor
+import com.example.subsinthe.crossline.util.pack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -65,9 +66,9 @@ class Client private constructor(
         LOG.info("fileSearch($query, ticket=$ticket)")
 
         val iterator = Channel<String>()
-        val token = serverConnection.subscribeTo<ServerResponse.ConnectToPeer> { response ->
-            onFileSearchConnectToPeer(response, iterator, ticket)
-        }
+        val token = serverConnection.subscribeTo<ServerResponse.ConnectToPeer>(scope.pack
+            { response -> onFileSearchConnectToPeer(response, iterator, ticket) }
+        )
         iterator.invokeOnClose { token.close() }
 
         try {
