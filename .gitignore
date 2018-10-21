@@ -2,6 +2,5 @@
 /build
 /local.properties
 .gradle
-.idea
 *.iml
 .vimrc
