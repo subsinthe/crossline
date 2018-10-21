@@ -1,6 +1,5 @@
 # Crossline
 
-
 <img align="right" src="https://i.imgur.com/U3pFYYN.png" width="350" height="350"/>
 
 [![Build Status](https://travis-ci.com/subsinthe/crossline.svg?branch=master)](https://travis-ci.org/subsinthe/crossline)
