@@ -17,3 +17,9 @@ before_script:
 
 script:
   - ./gradlew build lint test
+
+deploy:
+  provider: releases
+  api_key: $GITHUB_OAUTH_TOKEN
+  skip_cleanup: true
+  file: "app/build/outputs/apk/debug/app-debug.apk"
