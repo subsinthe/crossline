@@ -24,7 +24,7 @@ class SearchModel(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(
         LayoutInflater.from(parent.context).inflate(
-            R.layout.search_result_view, parent, false
+            R.layout.search_result, parent, false
         ) as View
     )
 
