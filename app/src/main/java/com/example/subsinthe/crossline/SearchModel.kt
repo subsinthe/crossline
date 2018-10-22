@@ -5,7 +5,7 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.View
 import android.widget.TextView
-import com.example.subsinthe.crossline.streaming.MusicTrack
+import com.example.subsinthe.crossline.streaming.IStreamingService.MusicTrack
 import com.example.subsinthe.crossline.util.IObservableList
 import com.example.subsinthe.crossline.util.MappingOp
 import com.example.subsinthe.crossline.util.loggerFor

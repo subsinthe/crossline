@@ -15,7 +15,6 @@ import android.view.Menu
 import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
 import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.FilesystemStreamingService
-import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.ObservableArrayList
 import com.example.subsinthe.crossline.util.ObservableValue
@@ -119,21 +118,21 @@ class MainActivity : AppCompatActivity() {
 
         val mainActivity = this
         uiScope.launch {
-            val viewManager = LinearLayoutManager(mainActivity)
-            val searchResults = ObservableArrayList<MusicTrack>()
+            val searchResults = ObservableArrayList<IStreamingService.MusicTrack>()
+            val searchQueryListener = SearchQueryListener(
+                uiScope, searchResults, streamingService
+            )
             val searchModel = SearchModel(searchResults)
+
             mainActivity.tokens += Token(searchModel)
+            mainActivity.tokens += Token(searchQueryListener)
 
             findViewById<RecyclerView>(R.id.search_results).apply {
-                layoutManager = viewManager
+                layoutManager = LinearLayoutManager(mainActivity)
                 adapter = searchModel
             }
 
             val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
-            val searchQueryListener = SearchQueryListener(
-                uiScope, searchResults, streamingService
-            )
-            mainActivity.tokens += Token(searchQueryListener)
             searchView.setOnQueryTextListener(searchQueryListener)
         }
         return true
