@@ -33,7 +33,5 @@ class FilesystemStreamingService(private val scope: CoroutineScope) : IStreaming
         return AsyncIterator(iterator)
     }
 
-    private companion object {
-        val LOG = loggerFor<FilesystemStreamingService>()
-    }
+    private companion object { val LOG = loggerFor<FilesystemStreamingService>() }
 }
