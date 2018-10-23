@@ -5,8 +5,9 @@ import java.io.Closeable
 
 interface IStreamingService : Closeable {
     data class MusicTrack(
-        val artist: String,
-        val title: String
+        val title: String,
+        val artist: String?,
+        val album: String?
     )
 
     suspend fun search(query: String): AsyncIterator<MusicTrack>

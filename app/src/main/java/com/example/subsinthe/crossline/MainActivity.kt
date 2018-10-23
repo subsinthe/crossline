@@ -1,6 +1,7 @@
 package com.example.subsinthe.crossline
 
 import android.os.Bundle
+import android.os.Environment
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
@@ -30,8 +31,12 @@ class MainActivity : AppCompatActivity() {
     private val uiScope = Dispatchers.Main.createScope()
     private val ioScope = Dispatchers.IO.createScope()
     private val socketFactory = SocketFactory(ioScope)
+    private val filesystemStreamingServiceSettings =
+        ObservableValue<FilesystemStreamingService.Settings>(FilesystemStreamingService.Settings(
+            root = Environment.getExternalStorageDirectory().toString()
+        ))
     private val streamingService = ObservableValue<IStreamingService>(
-        FilesystemStreamingService(uiScope)
+        FilesystemStreamingService(uiScope, filesystemStreamingServiceSettings)
     )
     private val tokens = TokenPool()
 
