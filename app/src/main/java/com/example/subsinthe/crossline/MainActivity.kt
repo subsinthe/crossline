@@ -1,6 +1,7 @@
 package com.example.subsinthe.crossline
 
 import android.os.Bundle
+import android.os.Environment
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
@@ -15,48 +16,27 @@ import android.view.Menu
 import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
 import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.FilesystemStreamingService
-import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.ObservableArrayList
 import com.example.subsinthe.crossline.util.ObservableValue
 import com.example.subsinthe.crossline.util.TokenPool
 import com.example.subsinthe.crossline.util.Token
-import com.example.subsinthe.crossline.util.loggerFor
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
+import com.example.subsinthe.crossline.util.createScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.android.Main
-import kotlin.coroutines.CoroutineContext
-
-private class DefaultExceptionHandler {
-    companion object {
-        fun get() = CoroutineExceptionHandler { _: CoroutineContext, ex: Throwable ->
-            val stackTrace = ex.stackTrace.fold("") { trace, frame -> "$trace\n$frame" }
-            LOG.severe("Uncaught exception: $ex:$stackTrace")
-        }
-
-        private val LOG = loggerFor<DefaultExceptionHandler>()
-    }
-}
-
-private class UiScope : CoroutineScope {
-    override val coroutineContext: CoroutineContext =
-        Dispatchers.Main + DefaultExceptionHandler.get()
-}
-
-private class IoScope : CoroutineScope {
-    override val coroutineContext: CoroutineContext =
-        Dispatchers.IO + DefaultExceptionHandler.get()
-}
 
 class MainActivity : AppCompatActivity() {
-    private val uiScope = UiScope()
-    private val ioScope = IoScope()
+    private val uiScope = Dispatchers.Main.createScope()
+    private val ioScope = Dispatchers.IO.createScope()
     private val socketFactory = SocketFactory(ioScope)
+    private val filesystemStreamingServiceSettings =
+        ObservableValue<FilesystemStreamingService.Settings>(FilesystemStreamingService.Settings(
+            root = Environment.getExternalStorageDirectory().toString()
+        ))
     private val streamingService = ObservableValue<IStreamingService>(
-        FilesystemStreamingService(uiScope)
+        FilesystemStreamingService(uiScope, filesystemStreamingServiceSettings)
     )
     private val tokens = TokenPool()
 
@@ -119,21 +99,21 @@ class MainActivity : AppCompatActivity() {
 
         val mainActivity = this
         uiScope.launch {
-            val viewManager = LinearLayoutManager(mainActivity)
-            val searchResults = ObservableArrayList<MusicTrack>()
+            val searchResults = ObservableArrayList<IStreamingService.MusicTrack>()
+            val searchQueryListener = SearchQueryListener(
+                uiScope, searchResults, streamingService
+            )
             val searchModel = SearchModel(searchResults)
+
             mainActivity.tokens += Token(searchModel)
+            mainActivity.tokens += Token(searchQueryListener)
 
             findViewById<RecyclerView>(R.id.search_results).apply {
-                layoutManager = viewManager
+                layoutManager = LinearLayoutManager(mainActivity)
                 adapter = searchModel
             }
 
             val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
-            val searchQueryListener = SearchQueryListener(
-                uiScope, searchResults, streamingService
-            )
-            mainActivity.tokens += Token(searchQueryListener)
             searchView.setOnQueryTextListener(searchQueryListener)
         }
         return true

@@ -29,8 +29,7 @@
             android:layout_below="@id/toolbar"
             android:layout_alignParentLeft="true"
             android:layout_alignParentRight="true"
-            android:layout_alignParentBottom="true"
-            tools:listitem="@layout/recycler_view_item" />
+            android:layout_alignParentBottom="true" />
 
     </RelativeLayout>
 

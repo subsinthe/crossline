@@ -5,7 +5,7 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.View
 import android.widget.TextView
-import com.example.subsinthe.crossline.streaming.MusicTrack
+import com.example.subsinthe.crossline.streaming.IStreamingService.MusicTrack
 import com.example.subsinthe.crossline.util.IObservableList
 import com.example.subsinthe.crossline.util.MappingOp
 import com.example.subsinthe.crossline.util.loggerFor
@@ -24,7 +24,7 @@ class SearchModel(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(
         LayoutInflater.from(parent.context).inflate(
-            R.layout.search_result_view, parent, false
+            R.layout.search_result, parent, false
         ) as View
     )
 

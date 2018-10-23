@@ -2,5 +2,6 @@
     <issue id="InvalidPackage">
         <ignore path="**/netty-resolver-dns*.jar"/>
         <ignore path="**/vertx-core*.jar"/>
+        <ignore path="**/jaudiotagger*.jar"/>
     </issue>
 </lint>

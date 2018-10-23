@@ -1,11 +1,9 @@
 package com.example.subsinthe.crossline
 
 import android.support.v7.widget.SearchView
-import com.example.subsinthe.crossline.streaming.IMusicSearchEngine
 import com.example.subsinthe.crossline.streaming.IStreamingService
-import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.util.IObservableList
-import com.example.subsinthe.crossline.util.IObservableValue
+import com.example.subsinthe.crossline.util.IObservable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -14,11 +12,11 @@ import java.io.Closeable
 
 class SearchQueryListener(
     private val scope: CoroutineScope,
-    private val searchResults: IObservableList<MusicTrack>,
-    streamingService: IObservableValue<IStreamingService>
+    private val searchResults: IObservableList<IStreamingService.MusicTrack>,
+    streamingService_: IObservable<IStreamingService>
 ) : SearchView.OnQueryTextListener, Closeable {
-    private lateinit var searchEngine: IMusicSearchEngine
-    private val searchEngineConnection = streamingService.subscribe {
+    private lateinit var streamingService: IStreamingService
+    private val connection = streamingService_.subscribe {
         onStreamingServiceChanged(it)
     }
     private var searchJob: Job? = null
@@ -32,7 +30,7 @@ class SearchQueryListener(
         searchResults.clear()
 
         searchJob = scope.launch {
-            searchEngine.search(query).use { iterator ->
+            streamingService.search(query).use { iterator ->
                 iterator.consumeEach { musicTrack -> searchResults.add(musicTrack) }
             }
         }
@@ -40,14 +38,14 @@ class SearchQueryListener(
     }
 
     override fun close() {
-        searchEngineConnection.close()
+        connection.close()
         searchJob?.cancel()
     }
 
-    private fun onStreamingServiceChanged(streamingService: IStreamingService) {
+    private fun onStreamingServiceChanged(streamingService_: IStreamingService) {
         searchJob?.cancel()
         searchResults.clear()
 
-        searchEngine = streamingService.searchEngine
+        streamingService = streamingService_
     }
 }
