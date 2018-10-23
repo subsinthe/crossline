@@ -20,39 +20,15 @@ import com.example.subsinthe.crossline.util.ObservableArrayList
 import com.example.subsinthe.crossline.util.ObservableValue
 import com.example.subsinthe.crossline.util.TokenPool
 import com.example.subsinthe.crossline.util.Token
-import com.example.subsinthe.crossline.util.loggerFor
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
+import com.example.subsinthe.crossline.util.createScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.android.Main
-import kotlin.coroutines.CoroutineContext
-
-private class DefaultExceptionHandler {
-    companion object {
-        fun get() = CoroutineExceptionHandler { _: CoroutineContext, ex: Throwable ->
-            val stackTrace = ex.stackTrace.fold("") { trace, frame -> "$trace\n$frame" }
-            LOG.severe("Uncaught exception: $ex:$stackTrace")
-        }
-
-        private val LOG = loggerFor<DefaultExceptionHandler>()
-    }
-}
-
-private class UiScope : CoroutineScope {
-    override val coroutineContext: CoroutineContext =
-        Dispatchers.Main + DefaultExceptionHandler.get()
-}
-
-private class IoScope : CoroutineScope {
-    override val coroutineContext: CoroutineContext =
-        Dispatchers.IO + DefaultExceptionHandler.get()
-}
 
 class MainActivity : AppCompatActivity() {
-    private val uiScope = UiScope()
-    private val ioScope = IoScope()
+    private val uiScope = Dispatchers.Main.createScope()
+    private val ioScope = Dispatchers.IO.createScope()
     private val socketFactory = SocketFactory(ioScope)
     private val streamingService = ObservableValue<IStreamingService>(
         FilesystemStreamingService(uiScope)
