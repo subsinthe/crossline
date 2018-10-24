@@ -42,6 +42,8 @@ class FilesystemStreamingService(
         private val jobs = HashMap<UUID, Job>()
 
         fun search(query: String, root: String): AsyncIterator<MusicTrack> {
+            LOG.info("search($query in $root)")
+
             val iterator = Channel<MusicTrack>()
             val jobId = UUID.randomUUID()
             val job = worker.launch { searchJob(jobId, iterator, query, root) }
@@ -94,11 +96,7 @@ class FilesystemStreamingService(
         worker.close()
     }
 
-    override suspend fun search(query: String): AsyncIterator<MusicTrack> {
-        LOG.info("search($query)")
-
-        return searcher.search(query, settings.root)
-    }
+    override suspend fun search(query: String) = searcher.search(query, settings.root)
 
     private fun onSettingsChanged(settings_: Settings) {
         searcher.cancel()
