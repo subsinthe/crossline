@@ -63,6 +63,7 @@ class FilesystemStreamingService(
                 if (!rootEntry.exists())
                     throw IllegalArgumentException("Root entry $root does not exist")
 
+                val knownTracks = HashSet<MusicTrack>()
                 for (entry in rootEntry.walkTopDown()) {
                     yield()
 
@@ -72,7 +73,8 @@ class FilesystemStreamingService(
                         else
                             null
                     }?.let { track ->
-                        output.send(track)
+                        if (knownTracks.add(track))
+                            output.send(track)
                     }
                 }
             }
