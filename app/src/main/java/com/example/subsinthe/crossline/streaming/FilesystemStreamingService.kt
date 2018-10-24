@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlin.collections.HashMap
 import org.apache.commons.io.FilenameUtils
+import org.jaudiotagger.audio.exceptions.CannotReadException as CannotReadAudioException
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
@@ -103,15 +104,17 @@ class FilesystemStreamingService(
 }
 
 private fun File.asMusicTrack(): MusicTrack? {
+    val file = this
+
     val audioFile = try {
-        AudioFileIO.read(this)
-    } catch (ex: Throwable) {
+        AudioFileIO.read(file)
+    } catch (ex: CannotReadAudioException) {
         null
     }
 
     audioFile?.tag?.apply {
         return MusicTrack(
-            title = getFirst(FieldKey.TITLE) ?: FilenameUtils.removeExtension(getName()),
+            title = getFirst(FieldKey.TITLE) ?: FilenameUtils.removeExtension(file.getName()),
             artist = getFirst(FieldKey.ARTIST) ?: getFirst(FieldKey.ALBUM_ARTIST),
             album = getFirst(FieldKey.ALBUM)
         )
