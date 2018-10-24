@@ -16,7 +16,6 @@ import kotlinx.coroutines.yield
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 import org.apache.commons.io.FilenameUtils
-import org.jaudiotagger.audio.exceptions.CannotReadException as CannotReadAudioException
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
@@ -114,7 +113,7 @@ private fun File.asMusicTrack(): MusicTrack? {
 
     val audioFile = try {
         AudioFileIO.read(file)
-    } catch (ex: CannotReadAudioException) {
+    } catch (ex: Throwable) {
         null
     }
 
