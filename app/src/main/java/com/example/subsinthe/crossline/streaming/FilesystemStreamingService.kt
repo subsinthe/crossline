@@ -17,6 +17,7 @@ import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 import org.apache.commons.io.FilenameUtils
 import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.audio.SupportedFileFormat
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
 import java.util.UUID
@@ -107,10 +108,13 @@ class FilesystemStreamingService(
 }
 
 private fun File.asMusicTrack(): MusicTrack? {
-    val file = this
+    val filename = getName()
+
+    if (!(FilenameUtils.getExtension(filename) in SUPPORTED_AUDIO_FORMATS))
+        return null
 
     val audioFile = try {
-        AudioFileIO.read(file)
+        AudioFileIO.read(this)
     } catch (ex: Throwable) {
         null
     }
@@ -119,7 +123,7 @@ private fun File.asMusicTrack(): MusicTrack? {
         return MusicTrack(
             title = getFirst(FieldKey.TITLE)?.let {
                 if (it != "") it else null
-            } ?: FilenameUtils.removeExtension(file.getName()),
+            } ?: FilenameUtils.removeExtension(filename),
             artist = getFirst(FieldKey.ARTIST) ?: getFirst(FieldKey.ALBUM_ARTIST),
             album = getFirst(FieldKey.ALBUM)
         )
@@ -127,5 +131,12 @@ private fun File.asMusicTrack(): MusicTrack? {
 
     return null
 }
+
+private val SUPPORTED_AUDIO_FORMATS = hashSetOf(
+    SupportedFileFormat.OGG.getFilesuffix(),
+    SupportedFileFormat.MP3.getFilesuffix(),
+    SupportedFileFormat.FLAC.getFilesuffix(),
+    SupportedFileFormat.WAV.getFilesuffix()
+)
 
 private fun containsFileFilter(file: File, query: String) = file.getAbsolutePath().contains(query)
