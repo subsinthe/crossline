@@ -60,10 +60,15 @@ class FilesystemStreamingService(
                 if (!rootEntry.exists())
                     throw IllegalArgumentException("Root entry $root does not exist")
 
-                rootEntry.walkTopDown().forEach {
-                    if (it.isFile() && entryFilter(it, query))
-                        it.asMusicTrack()?.let { output.send(it) }
+                for (entry in rootEntry.walkTopDown()) {
                     yield()
+
+                    if (!entry.isFile())
+                        continue
+                    if (!entryFilter(entry, query))
+                        continue
+
+                    entry.asMusicTrack()?.let { output.send(it) }
                 }
             }
             scope.launch {
