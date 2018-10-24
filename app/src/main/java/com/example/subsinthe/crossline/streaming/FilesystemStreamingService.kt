@@ -4,6 +4,7 @@ import com.example.subsinthe.crossline.util.AsyncIterator
 import com.example.subsinthe.crossline.util.IObservable
 import com.example.subsinthe.crossline.util.createScope
 import com.example.subsinthe.crossline.util.loggerFor
+import com.example.subsinthe.crossline.util.try_
 import com.example.subsinthe.crossline.util.useOutput
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -64,12 +65,14 @@ class FilesystemStreamingService(
                 for (entry in rootEntry.walkTopDown()) {
                     yield()
 
-                    if (!entry.isFile())
-                        continue
-                    if (!entryFilter(entry, query))
-                        continue
+                    LOG.try_({ "Entry $entry interpretation failed" }) {
+                        if (!entry.isFile())
+                            return@try_
+                        if (!entryFilter(entry, query))
+                            return@try_
 
-                    entry.asMusicTrack()?.let { output.send(it) }
+                        entry.asMusicTrack()?.let { output.send(it) }
+                    }
                 }
             }
 
