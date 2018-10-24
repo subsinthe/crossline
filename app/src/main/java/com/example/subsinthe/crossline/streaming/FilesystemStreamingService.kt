@@ -116,20 +116,18 @@ private fun File.asMusicTrack(): MusicTrack? {
     val audioFile = try {
         AudioFileIO.read(this)
     } catch (ex: Throwable) {
-        null
+        return null
     }
 
-    audioFile?.tag?.apply {
-        return MusicTrack(
-            title = getFirst(FieldKey.TITLE)?.let {
+    return audioFile.tag?.let { tag ->
+        MusicTrack(
+            title = tag.getFirst(FieldKey.TITLE)?.let {
                 if (it != "") it else null
             } ?: FilenameUtils.removeExtension(filename),
-            artist = getFirst(FieldKey.ARTIST) ?: getFirst(FieldKey.ALBUM_ARTIST),
-            album = getFirst(FieldKey.ALBUM)
+            artist = tag.getFirst(FieldKey.ARTIST) ?: tag.getFirst(FieldKey.ALBUM_ARTIST),
+            album = tag.getFirst(FieldKey.ALBUM)
         )
     }
-
-    return null
 }
 
 private val SUPPORTED_AUDIO_FORMATS = hashSetOf(
