@@ -117,7 +117,9 @@ private fun File.asMusicTrack(): MusicTrack? {
 
     audioFile?.tag?.apply {
         return MusicTrack(
-            title = getFirst(FieldKey.TITLE) ?: FilenameUtils.removeExtension(file.getName()),
+            title = getFirst(FieldKey.TITLE)?.let {
+                if (it != "") it else null
+            } ?: FilenameUtils.removeExtension(file.getName()),
             artist = getFirst(FieldKey.ARTIST) ?: getFirst(FieldKey.ALBUM_ARTIST),
             album = getFirst(FieldKey.ALBUM)
         )
