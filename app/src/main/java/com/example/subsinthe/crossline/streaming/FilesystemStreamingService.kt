@@ -4,6 +4,7 @@ import com.example.subsinthe.crossline.util.AsyncIterator
 import com.example.subsinthe.crossline.util.IObservable
 import com.example.subsinthe.crossline.util.createScope
 import com.example.subsinthe.crossline.util.loggerFor
+import com.example.subsinthe.crossline.util.try_
 import com.example.subsinthe.crossline.util.useOutput
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -13,8 +14,10 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlin.collections.HashMap
+import kotlin.collections.HashSet
 import org.apache.commons.io.FilenameUtils
 import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.audio.SupportedFileFormat
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
 import java.util.UUID
@@ -27,7 +30,7 @@ class FilesystemStreamingService(
     settings_: IObservable<Settings>
 ) : IStreamingService {
     private lateinit var settings: Settings
-    private val worker = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
+    private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val workerScope = worker.createScope()
     private val searcher = Searcher(workerScope, scope, entryFilter = ::containsFileFilter)
     private val connection = settings_.subscribe { onSettingsChanged(it) }
@@ -40,6 +43,8 @@ class FilesystemStreamingService(
         private val jobs = HashMap<UUID, Job>()
 
         fun search(query: String, root: String): AsyncIterator<MusicTrack> {
+            LOG.info("search($query in $root)")
+
             val iterator = Channel<MusicTrack>()
             val jobId = UUID.randomUUID()
             val job = worker.launch { searchJob(jobId, iterator, query, root) }
@@ -60,15 +65,26 @@ class FilesystemStreamingService(
                 if (!rootEntry.exists())
                     throw IllegalArgumentException("Root entry $root does not exist")
 
-                rootEntry.walkTopDown().forEach {
-                    if (it.isFile() && entryFilter(it, query))
-                        it.asMusicTrack()?.let { output.send(it) }
+                val knownTracks = HashSet<MusicTrack>()
+                for (entry in rootEntry.walkTopDown()) {
                     yield()
+
+                    LOG.try_({ "Entry $entry interpretation failed" }) {
+                        if (entry.isFile() && entryFilter(entry, query))
+                            entry.asMusicTrack()
+                        else
+                            null
+                    }?.let { track ->
+                        if (knownTracks.add(track))
+                            output.send(track)
+                    }
                 }
             }
+
             scope.launch {
-                if (jobs.remove(id) == null)
-                    LOG.severe("Internal error: Search job for $id was already removed")
+                assert(jobs.remove(id) != null) {
+                    "Internal error: Search job for $id was already removed"
+                }
             }
         }
     }
@@ -81,11 +97,7 @@ class FilesystemStreamingService(
         worker.close()
     }
 
-    override suspend fun search(query: String): AsyncIterator<MusicTrack> {
-        LOG.info("search($query)")
-
-        return searcher.search(query, settings.root)
-    }
+    override suspend fun search(query: String) = searcher.search(query, settings.root)
 
     private fun onSettingsChanged(settings_: Settings) {
         searcher.cancel()
@@ -96,15 +108,33 @@ class FilesystemStreamingService(
 }
 
 private fun File.asMusicTrack(): MusicTrack? {
-    val audioFile = try { AudioFileIO.read(this) } catch (ex: Throwable) { null }
-    audioFile?.tag?.apply {
-        return MusicTrack(
-            title = getFirst(FieldKey.TITLE) ?: FilenameUtils.removeExtension(getName()),
-            artist = getFirst(FieldKey.ARTIST) ?: getFirst(FieldKey.ALBUM_ARTIST),
-            album = getFirst(FieldKey.ALBUM)
+    val filename = getName()
+
+    if (!(FilenameUtils.getExtension(filename) in SUPPORTED_AUDIO_FORMATS))
+        return null
+
+    val audioFile = try {
+        AudioFileIO.read(this)
+    } catch (ex: Throwable) {
+        return null
+    }
+
+    return audioFile.tag?.let { tag ->
+        MusicTrack(
+            title = tag.getFirst(FieldKey.TITLE)?.let {
+                if (it != "") it else null
+            } ?: FilenameUtils.removeExtension(filename),
+            artist = tag.getFirst(FieldKey.ARTIST) ?: tag.getFirst(FieldKey.ALBUM_ARTIST),
+            album = tag.getFirst(FieldKey.ALBUM)
         )
     }
-    return null
 }
+
+private val SUPPORTED_AUDIO_FORMATS = hashSetOf(
+    SupportedFileFormat.OGG.getFilesuffix(),
+    SupportedFileFormat.MP3.getFilesuffix(),
+    SupportedFileFormat.FLAC.getFilesuffix(),
+    SupportedFileFormat.WAV.getFilesuffix()
+)
 
 private fun containsFileFilter(file: File, query: String) = file.getAbsolutePath().contains(query)
