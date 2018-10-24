@@ -71,6 +71,7 @@ class FilesystemStreamingService(
                     entry.asMusicTrack()?.let { output.send(it) }
                 }
             }
+
             scope.launch {
                 if (jobs.remove(id) == null)
                     LOG.severe("Internal error: Search job for $id was already removed")
@@ -101,7 +102,12 @@ class FilesystemStreamingService(
 }
 
 private fun File.asMusicTrack(): MusicTrack? {
-    val audioFile = try { AudioFileIO.read(this) } catch (ex: Throwable) { null }
+    val audioFile = try {
+        AudioFileIO.read(this)
+    } catch (ex: Throwable) {
+        null
+    }
+
     audioFile?.tag?.apply {
         return MusicTrack(
             title = getFirst(FieldKey.TITLE) ?: FilenameUtils.removeExtension(getName()),
@@ -109,6 +115,7 @@ private fun File.asMusicTrack(): MusicTrack? {
             album = getFirst(FieldKey.ALBUM)
         )
     }
+
     return null
 }
 
