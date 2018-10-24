@@ -73,8 +73,10 @@ class FilesystemStreamingService(
             }
 
             scope.launch {
-                if (jobs.remove(id) == null)
-                    LOG.severe("Internal error: Search job for $id was already removed")
+                assert(
+                    jobs.remove(id) != null,
+                    "Internal error: Search job for $id was already removed"
+                )
             }
         }
     }
