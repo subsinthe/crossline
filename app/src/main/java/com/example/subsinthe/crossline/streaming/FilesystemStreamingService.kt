@@ -27,7 +27,7 @@ class FilesystemStreamingService(
     settings_: IObservable<Settings>
 ) : IStreamingService {
     private lateinit var settings: Settings
-    private val worker = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
+    private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val workerScope = worker.createScope()
     private val searcher = Searcher(workerScope, scope, entryFilter = ::containsFileFilter)
     private val connection = settings_.subscribe { onSettingsChanged(it) }
