@@ -14,6 +14,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlin.collections.HashMap
+import kotlin.collections.HashSet
 import org.apache.commons.io.FilenameUtils
 import org.jaudiotagger.audio.exceptions.CannotReadException as CannotReadAudioException
 import org.jaudiotagger.audio.AudioFileIO
@@ -66,12 +67,12 @@ class FilesystemStreamingService(
                     yield()
 
                     LOG.try_({ "Entry $entry interpretation failed" }) {
-                        if (!entry.isFile())
-                            return@try_
-                        if (!entryFilter(entry, query))
-                            return@try_
-
-                        entry.asMusicTrack()?.let { output.send(it) }
+                        if (entry.isFile() && entryFilter(entry, query))
+                            entry.asMusicTrack()
+                        else
+                            null
+                    }?.let { track ->
+                        output.send(track)
                     }
                 }
             }
