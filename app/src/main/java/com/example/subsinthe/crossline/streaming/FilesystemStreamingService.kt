@@ -73,10 +73,9 @@ class FilesystemStreamingService(
             }
 
             scope.launch {
-                assert(
-                    jobs.remove(id) != null,
+                assert(jobs.remove(id) != null) {
                     "Internal error: Search job for $id was already removed"
-                )
+                }
             }
         }
     }
