@@ -14,6 +14,7 @@ import android.support.v7.widget.Toolbar
 import android.view.MenuItem
 import android.view.Menu
 import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
+import com.example.subsinthe.crossline.streaming.DummyStreamingService
 import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.FilesystemStreamingService
 import com.example.subsinthe.crossline.streaming.MusicTrack
@@ -37,9 +38,9 @@ class MainActivity : AppCompatActivity() {
         ObservableValue<FilesystemStreamingService.Settings>(FilesystemStreamingService.Settings(
             root = Environment.getExternalStorageDirectory().toString()
         ))
-    private val streamingService = ObservableValue<IStreamingService>(
-        FilesystemStreamingService(uiScope, filesystemStreamingServiceSettings)
-    )
+    private val streamingServices = HashMap<StreamingServiceType, IStreamingService>()
+    private val streamingService = ObservableValue<IStreamingService>(DummyStreamingService())
+    private val permissionListener = PermissionListener(this)
     private val tokens = TokenPool()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +49,12 @@ class MainActivity : AppCompatActivity() {
         AndroidLoggingHandler.reset(AndroidLoggingHandler())
 
         setContentView(R.layout.activity_main)
+        permissionListener.requestReadExternalStorage {
+            val service = FilesystemStreamingService(uiScope, filesystemStreamingServiceSettings)
+            streamingServices.put(service.type, service)
+            if (streamingService.value.type == StreamingServiceType.Dummy)
+                streamingService.value = service
+        }
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
@@ -119,5 +126,14 @@ class MainActivity : AppCompatActivity() {
             searchView.setOnQueryTextListener(searchQueryListener)
         }
         return true
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        permissionListener.report(requestCode, permissions, grantResults)
     }
 }
