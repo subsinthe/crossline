@@ -91,6 +91,8 @@ class FilesystemStreamingService(
 
     data class Settings(val root: String)
 
+    override val type = ServiceType.Filesystem
+
     override fun close() {
         connection.close()
         searcher.cancel()
