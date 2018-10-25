@@ -23,8 +23,6 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 
-private typealias MusicTrack = IStreamingService.MusicTrack
-
 class FilesystemStreamingService(
     private val scope: CoroutineScope,
     settings_: IObservable<Settings>
@@ -90,6 +88,8 @@ class FilesystemStreamingService(
     }
 
     data class Settings(val root: String)
+
+    override val type = ServiceType.Filesystem
 
     override fun close() {
         connection.close()
