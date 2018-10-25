@@ -2,6 +2,7 @@ package com.example.subsinthe.crossline
 
 import android.support.v7.widget.SearchView
 import com.example.subsinthe.crossline.streaming.IStreamingService
+import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.util.IObservableList
 import com.example.subsinthe.crossline.util.IObservable
 import kotlinx.coroutines.CoroutineScope
@@ -12,7 +13,7 @@ import java.io.Closeable
 
 class SearchQueryListener(
     private val scope: CoroutineScope,
-    private val searchResults: IObservableList<IStreamingService.MusicTrack>,
+    private val searchResults: IObservableList<MusicTrack>,
     streamingService_: IObservable<IStreamingService>
 ) : SearchView.OnQueryTextListener, Closeable {
     private lateinit var streamingService: IStreamingService

@@ -9,12 +9,6 @@ enum class ServiceType {
 }
 
 interface IStreamingService : Closeable {
-    data class MusicTrack(
-        val title: String,
-        val artist: String?,
-        val album: String?
-    )
-
     val type: ServiceType
 
     suspend fun search(query: String): AsyncIterator<MusicTrack>

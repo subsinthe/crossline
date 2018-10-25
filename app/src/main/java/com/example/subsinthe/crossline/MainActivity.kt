@@ -16,6 +16,8 @@ import android.view.Menu
 import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
 import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.FilesystemStreamingService
+import com.example.subsinthe.crossline.streaming.MusicTrack
+import com.example.subsinthe.crossline.streaming.ServiceType as StreamingServiceType
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.ObservableArrayList
 import com.example.subsinthe.crossline.util.ObservableValue
@@ -99,7 +101,7 @@ class MainActivity : AppCompatActivity() {
 
         val mainActivity = this
         uiScope.launch {
-            val searchResults = ObservableArrayList<IStreamingService.MusicTrack>()
+            val searchResults = ObservableArrayList<MusicTrack>()
             val searchQueryListener = SearchQueryListener(
                 uiScope, searchResults, streamingService
             )
