@@ -6,6 +6,8 @@ class ObservableValue<T>(private var impl_: T) : IObservableValue<T> {
     override var value
         get() = impl_
         set(value: T) {
+            if (impl_ == value)
+                return
             impl_ = value
             changed(impl_)
         }

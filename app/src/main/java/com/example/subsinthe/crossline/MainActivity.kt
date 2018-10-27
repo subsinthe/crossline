@@ -108,18 +108,26 @@ class MainActivity : AppCompatActivity() {
 
         val mainActivity = this
         uiScope.launch {
+            val layoutManager = LinearLayoutManager(mainActivity)
             val searchResults = ObservableArrayList<MusicTrack>()
+            val searchMoreListener = LoadMoreScrollListener(layoutManager)
             val searchQueryListener = SearchQueryListener(
-                uiScope, searchResults, streamingService
+                streamingService,
+                uiScope,
+                searchResults,
+                searchMoreListener.channel,
+                loadBatchSize = 10,
+                searchDelayOnQueryChange = 1500
             )
-            val searchModel = SearchModel(searchResults)
+            val searchModel = SearchModel(searchResults, searchQueryListener.isSearchActive)
 
             mainActivity.tokens += Token(searchModel)
             mainActivity.tokens += Token(searchQueryListener)
 
             findViewById<RecyclerView>(R.id.search_results).apply {
-                layoutManager = LinearLayoutManager(mainActivity)
+                this.layoutManager = layoutManager
                 adapter = searchModel
+                addOnScrollListener(searchMoreListener)
             }
 
             val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
