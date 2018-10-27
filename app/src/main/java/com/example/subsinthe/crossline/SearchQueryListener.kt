@@ -51,6 +51,9 @@ class SearchQueryListener(
     }
 
     private fun search(query: String, doDelay: Boolean) {
+        if (query.isEmpty())
+            return
+
         searchJobHandle?.cancel()
         searchResults.clear()
 
