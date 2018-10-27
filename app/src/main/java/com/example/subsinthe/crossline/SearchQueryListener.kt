@@ -23,43 +23,45 @@ class SearchQueryListener(
 ) : SearchView.OnQueryTextListener, Closeable {
     private val _isSearchActive = ObservableValue<Boolean>(false)
     private lateinit var streamingService: IStreamingService
-    private var searchJob: Job? = null
+    private var searchJobHandle: Job? = null
     private val connection = streamingService_.subscribe { onStreamingServiceChanged(it) }
 
     val isSearchActive: IObservable<Boolean> = _isSearchActive
 
     override fun onQueryTextChange(query: String): Boolean {
-        searchJob?.cancel()
-        searchResults.clear()
-
-        searchJob = scope.launch {
-            delay(searchDelayOnQueryChange)
-            search(query)
-        }
+        search(query, doDelay = true)
         return true
     }
 
     override fun onQueryTextSubmit(query: String): Boolean {
-        searchJob?.cancel()
-        searchResults.clear()
-
-        searchJob = scope.launch { search(query) }
+        search(query, doDelay = false)
         return true
     }
 
     override fun close() {
         connection.close()
-        searchJob?.cancel()
+        searchJobHandle?.cancel()
     }
 
     private fun onStreamingServiceChanged(streamingService_: IStreamingService) {
-        searchJob?.cancel()
+        searchJobHandle?.cancel()
         searchResults.clear()
 
         streamingService = streamingService_
     }
 
-    private suspend fun search(query: String) {
+    private fun search(query: String, doDelay: Boolean) {
+        searchJobHandle?.cancel()
+        searchResults.clear()
+
+        searchJobHandle = scope.launch {
+            if (doDelay)
+                delay(searchDelayOnQueryChange)
+            searchJob(query)
+        }
+    }
+
+    private suspend fun searchJob(query: String) {
         _isSearchActive.value = true
         try {
             streamingService.search(query).use { iterator ->
