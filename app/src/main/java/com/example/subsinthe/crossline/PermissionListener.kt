@@ -19,7 +19,11 @@ class PermissionListener(private val mainActivity: Activity) {
         "External storage reading allows us to scan filesystem for music"
     )
 
-    fun report(code: Int, permissions: Array<String>, grantResults: IntArray) {
+    fun report(
+        code: Int,
+        @Suppress("UNUSED_PARAMETER") permissions: Array<String>,
+        grantResults: IntArray
+    ) {
         val result = results.get(code)
         if (result == null) {
             LOG.severe("Internal error - no handlers for request $code")
