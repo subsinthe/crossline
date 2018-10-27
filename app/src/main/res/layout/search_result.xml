@@ -23,6 +23,8 @@
         android:layout_alignWithParentIfMissing="true"
         android:layout_toRightOf="@id/icon"
         android:gravity="center_vertical"
+        android:ellipsize="marquee"
+        android:singleLine="true"
         android:textSize="16sp" />
 
     <TextView
