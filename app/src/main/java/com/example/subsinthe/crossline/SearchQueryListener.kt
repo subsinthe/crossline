@@ -5,22 +5,26 @@ import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.util.IObservableList
 import com.example.subsinthe.crossline.util.IObservable
+import com.example.subsinthe.crossline.util.ObservableValue
+import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.channels.consumeEach
 import java.io.Closeable
 
 class SearchQueryListener(
+    streamingService_: IObservable<IStreamingService>,
     private val scope: CoroutineScope,
     private val searchResults: IObservableList<MusicTrack>,
-    streamingService_: IObservable<IStreamingService>
+    private val searchMore: ReceiveChannel<Unit>,
+    private val loadBatchSize: Int
 ) : SearchView.OnQueryTextListener, Closeable {
+    private val _isSearchActive = ObservableValue<Boolean>(false)
     private lateinit var streamingService: IStreamingService
-    private val connection = streamingService_.subscribe {
-        onStreamingServiceChanged(it)
-    }
     private var searchJob: Job? = null
+    private val connection = streamingService_.subscribe { onStreamingServiceChanged(it) }
+
+    val isSearchActive: IObservable<Boolean> = _isSearchActive
 
     override fun onQueryTextChange(query: String): Boolean {
         return true
@@ -30,11 +34,7 @@ class SearchQueryListener(
         searchJob?.cancel()
         searchResults.clear()
 
-        searchJob = scope.launch {
-            streamingService.search(query).use { iterator ->
-                iterator.consumeEach { musicTrack -> searchResults.add(musicTrack) }
-            }
-        }
+        searchJob = scope.launch { search(query) }
         return true
     }
 
@@ -48,5 +48,20 @@ class SearchQueryListener(
         searchResults.clear()
 
         streamingService = streamingService_
+    }
+
+    private suspend fun search(query: String) {
+        _isSearchActive.value = true
+        try {
+            streamingService.search(query).use { iterator ->
+                while (true) {
+                    for (i in 0..(loadBatchSize - 1))
+                        searchResults.add(iterator.receive())
+                    searchMore.receive()
+                }
+            }
+        } finally {
+            _isSearchActive.value = false
+        }
     }
 }
