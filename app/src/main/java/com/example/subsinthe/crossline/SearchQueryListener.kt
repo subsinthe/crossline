@@ -69,7 +69,7 @@ class SearchQueryListener(
         try {
             streamingService.search(query).use { iterator ->
                 while (true) {
-                    for (i in 0..(loadBatchSize - 1))
+                    for (i in 0 until loadBatchSize)
                         searchResults.add(iterator.receive())
                     searchMore.receive()
                 }
