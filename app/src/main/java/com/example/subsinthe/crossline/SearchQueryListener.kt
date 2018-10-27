@@ -9,6 +9,7 @@ import com.example.subsinthe.crossline.util.ObservableValue
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.Closeable
 
@@ -17,7 +18,8 @@ class SearchQueryListener(
     private val scope: CoroutineScope,
     private val searchResults: IObservableList<MusicTrack>,
     private val searchMore: ReceiveChannel<Unit>,
-    private val loadBatchSize: Int
+    private val loadBatchSize: Int,
+    private val searchDelayOnQueryChange: Int
 ) : SearchView.OnQueryTextListener, Closeable {
     private val _isSearchActive = ObservableValue<Boolean>(false)
     private lateinit var streamingService: IStreamingService
@@ -27,6 +29,13 @@ class SearchQueryListener(
     val isSearchActive: IObservable<Boolean> = _isSearchActive
 
     override fun onQueryTextChange(query: String): Boolean {
+        searchJob?.cancel()
+        searchResults.clear()
+
+        searchJob = scope.launch {
+            delay(searchDelayOnQueryChange)
+            search(query)
+        }
         return true
     }
 

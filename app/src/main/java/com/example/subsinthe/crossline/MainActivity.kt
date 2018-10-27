@@ -116,7 +116,8 @@ class MainActivity : AppCompatActivity() {
                 uiScope,
                 searchResults,
                 searchMoreListener.channel,
-                loadBatchSize = 10
+                loadBatchSize = 10,
+                searchDelayOnQueryChange = 1500
             )
             val searchModel = SearchModel(searchResults, searchQueryListener.isSearchActive)
 
