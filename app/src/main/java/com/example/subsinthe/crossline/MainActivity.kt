@@ -13,6 +13,8 @@ import android.support.v7.widget.SearchView
 import android.support.v7.widget.Toolbar
 import android.view.MenuItem
 import android.view.Menu
+import android.view.View
+import android.widget.ViewFlipper
 import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
 import com.example.subsinthe.crossline.streaming.DummyStreamingService
 import com.example.subsinthe.crossline.streaming.IStreamingService
@@ -21,6 +23,7 @@ import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.streaming.ServiceType as StreamingServiceType
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.ObservableArrayList
+import com.example.subsinthe.crossline.util.ObservableHashMap
 import com.example.subsinthe.crossline.util.ObservableValue
 import com.example.subsinthe.crossline.util.TokenPool
 import com.example.subsinthe.crossline.util.Token
@@ -38,7 +41,7 @@ class MainActivity : AppCompatActivity() {
         ObservableValue<FilesystemStreamingService.Settings>(FilesystemStreamingService.Settings(
             root = Environment.getExternalStorageDirectory().toString()
         ))
-    private val streamingServices = HashMap<StreamingServiceType, IStreamingService>()
+    private val streamingServices = ObservableHashMap<StreamingServiceType, IStreamingService>()
     private val streamingService = ObservableValue<IStreamingService>(DummyStreamingService())
     private val permissionListener = PermissionListener(this)
     private val tokens = TokenPool()
@@ -48,6 +51,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val mainActivity = this
 
         AndroidLoggingHandler.reset(AndroidLoggingHandler())
 
@@ -59,8 +64,8 @@ class MainActivity : AppCompatActivity() {
                 streamingService.value = service
         }
 
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        setSupportActionBar(toolbar)
+        val mainToolbar = findViewById<Toolbar>(R.id.main_toolbar)
+        setSupportActionBar(mainToolbar)
         supportActionBar!!.apply {
             setDisplayShowTitleEnabled(false)
             setHomeButtonEnabled(true)
@@ -68,12 +73,23 @@ class MainActivity : AppCompatActivity() {
             setHomeAsUpIndicator(R.drawable.ic_dehaze)
         }
 
+        val settingsToolbar = findViewById<Toolbar>(R.id.settings_toolbar)
+        settingsToolbar.apply {
+            setTitle("Settings")
+            setNavigationIcon(R.drawable.ic_arrow_back)
+            setNavigationOnClickListener(object : View.OnClickListener {
+                override fun onClick(v: View) {
+                    changeMainView(R.id.main_layout)
+                }
+            })
+        }
+
         val drawerLayout = findViewById<DrawerLayout>(R.id.drawer_layout)
         val navigationView = findViewById<NavigationView>(R.id.navigation_view)
         val toggle = ActionBarDrawerToggle(
             this,
             drawerLayout,
-            toolbar,
+            mainToolbar,
             R.string.navigation_drawer_open,
             R.string.navigation_drawer_close
         )
@@ -83,7 +99,7 @@ class MainActivity : AppCompatActivity() {
         navigationView.setNavigationItemSelectedListener(
             object : NavigationView.OnNavigationItemSelectedListener {
                 override fun onNavigationItemSelected(item: MenuItem): Boolean {
-                    drawerLayout.closeDrawer(GravityCompat.START)
+                    mainActivity.onNavigationItemSelected(item)
                     return true
                 }
             }
@@ -123,17 +139,25 @@ class MainActivity : AppCompatActivity() {
                 searchDelayOnQueryChange = 1500
             )
             val searchModel = SearchModel(searchResults, searchQueryListener.isSearchActive)
+            val streamingSettingsModel = StreamingSettingsModel(
+                streamingServices, hashSetOf(StreamingServiceType.Dummy)
+            )
+
+            val searchResultsView = findViewById<RecyclerView>(R.id.search_results)
+            val streamingSettingsView = findViewById<RecyclerView>(R.id.streaming_settings_view)
+            val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
 
             mainActivity.tokens += Token(searchModel)
+            mainActivity.tokens += Token(streamingSettingsModel)
             mainActivity.tokens += Token(searchQueryListener)
 
-            findViewById<RecyclerView>(R.id.search_results).apply {
-                this.layoutManager = layoutManager
-                adapter = searchModel
-                addOnScrollListener(searchMoreListener)
-            }
+            searchResultsView.layoutManager = layoutManager
+            searchResultsView.adapter = searchModel
+            searchResultsView.addOnScrollListener(searchMoreListener)
 
-            val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
+            streamingSettingsView.layoutManager = LinearLayoutManager(mainActivity)
+            streamingSettingsView.adapter = streamingSettingsModel
+
             searchView.setOnQueryTextListener(searchQueryListener)
         }
         return true
@@ -146,5 +170,19 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         permissionListener.report(requestCode, permissions, grantResults)
+    }
+
+    private fun onNavigationItemSelected(item: MenuItem) {
+        when (item.itemId) {
+            R.id.drawer_settings -> {
+                changeMainView(R.id.settings_layout)
+            }
+        }
+        findViewById<DrawerLayout>(R.id.drawer_layout).closeDrawer(GravityCompat.START)
+    }
+
+    private fun changeMainView(id: Int) {
+        val viewFlipper = findViewById<ViewFlipper>(R.id.main_view_flipper)
+        viewFlipper.setDisplayedChild(viewFlipper.indexOfChild(findViewById(id)))
     }
 }
