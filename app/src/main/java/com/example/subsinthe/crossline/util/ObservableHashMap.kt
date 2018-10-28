@@ -1,4 +1,5 @@
 package com.example.subsinthe.crossline.util
+
 import kotlin.collections.HashMap
 
 class ObservableHashMap<K, V> : IObservableMap<K, V> {
