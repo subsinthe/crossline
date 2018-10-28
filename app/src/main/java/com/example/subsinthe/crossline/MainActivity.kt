@@ -42,6 +42,9 @@ class MainActivity : AppCompatActivity() {
     private val streamingService = ObservableValue<IStreamingService>(DummyStreamingService())
     private val permissionListener = PermissionListener(this)
     private val tokens = TokenPool()
+    init {
+        streamingServices.put(streamingService.value.type, streamingService.value)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
