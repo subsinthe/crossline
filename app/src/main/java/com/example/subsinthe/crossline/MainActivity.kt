@@ -1,7 +1,6 @@
 package com.example.subsinthe.crossline
 
 import android.os.Bundle
-import android.os.Environment
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
@@ -37,10 +36,7 @@ class MainActivity : AppCompatActivity() {
     private val uiScope = Dispatchers.Main.createScope()
     private val ioScope = Dispatchers.IO.createScope()
     private val socketFactory = SocketFactory(ioScope)
-    private val filesystemStreamingServiceSettings =
-        ObservableValue<FilesystemStreamingService.Settings>(FilesystemStreamingService.Settings(
-            root = Environment.getExternalStorageDirectory().toString()
-        ))
+    private val streamingSettings = StreamingSettings()
     private val streamingServices = ObservableHashMap<StreamingServiceType, IStreamingService>()
     private val streamingService = ObservableValue<IStreamingService>(DummyStreamingService())
     private val permissionListener = PermissionListener(this)
@@ -58,7 +54,7 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
         permissionListener.requestReadExternalStorage {
-            val service = FilesystemStreamingService(uiScope, filesystemStreamingServiceSettings)
+            val service = FilesystemStreamingService(uiScope, streamingSettings.filesystem)
             streamingServices.put(service.type, service)
             if (streamingService.value.type == StreamingServiceType.Dummy)
                 streamingService.value = service
@@ -140,7 +136,7 @@ class MainActivity : AppCompatActivity() {
             )
             val searchModel = SearchModel(searchResults, searchQueryListener.isSearchActive)
             val streamingSettingsModel = StreamingSettingsModel(
-                streamingServices, hashSetOf(StreamingServiceType.Dummy)
+                streamingSettings.serviceTypes, hashSetOf(StreamingServiceType.Dummy)
             )
 
             val searchResultsView = findViewById<RecyclerView>(R.id.search_results)

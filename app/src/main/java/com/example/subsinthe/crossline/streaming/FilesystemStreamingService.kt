@@ -1,7 +1,7 @@
 package com.example.subsinthe.crossline.streaming
 
 import com.example.subsinthe.crossline.util.AsyncIterator
-import com.example.subsinthe.crossline.util.IObservable
+import com.example.subsinthe.crossline.util.ObservableValue
 import com.example.subsinthe.crossline.util.createScope
 import com.example.subsinthe.crossline.util.loggerFor
 import com.example.subsinthe.crossline.util.try_
@@ -25,13 +25,13 @@ import java.util.concurrent.Executors
 
 class FilesystemStreamingService(
     private val scope: CoroutineScope,
-    settings_: IObservable<Settings>
+    settings: Settings
 ) : IStreamingService {
-    private lateinit var settings: Settings
+    private lateinit var root: String
     private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val workerScope = worker.createScope()
     private val searcher = Searcher(workerScope, scope, entryFilter = ::containsFileFilter)
-    private val connection = settings_.subscribe { onSettingsChanged(it) }
+    private val rootConnection = settings.root.subscribe { onRootChanged(it) }
 
     private class Searcher(
         private val worker: CoroutineScope,
@@ -87,21 +87,23 @@ class FilesystemStreamingService(
         }
     }
 
-    data class Settings(val root: String)
+    class Settings(root: String) {
+        val root = ObservableValue(root)
+    }
 
     override val type = ServiceType.Filesystem
 
     override fun close() {
-        connection.close()
+        rootConnection.close()
         searcher.cancel()
         worker.close()
     }
 
-    override suspend fun search(query: String) = searcher.search(query, settings.root)
+    override suspend fun search(query: String) = searcher.search(query, root)
 
-    private fun onSettingsChanged(settings_: Settings) {
+    private fun onRootChanged(root_: String) {
         searcher.cancel()
-        settings = settings_
+        root = root_
     }
 
     companion object { val LOG = loggerFor<FilesystemStreamingService>() }

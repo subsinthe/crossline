@@ -5,17 +5,16 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.View
 import android.widget.Button
-import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.ServiceType as StreamingServiceType
-import com.example.subsinthe.crossline.util.IObservableMap
-import com.example.subsinthe.crossline.util.MappingOp
+import com.example.subsinthe.crossline.util.IObservableSet
+import com.example.subsinthe.crossline.util.SetOp
 import com.example.subsinthe.crossline.util.loggerFor
 import kotlin.collections.LinkedHashSet
 import kotlin.collections.Set
 import java.io.Closeable
 
 class StreamingSettingsModel(
-    source: IObservableMap<StreamingServiceType, IStreamingService>,
+    source: IObservableSet<StreamingServiceType>,
     private val ignoredServices: Set<StreamingServiceType>
 ) : RecyclerView.Adapter<StreamingSettingsModel.ItemHolder>(), Closeable {
     private val storage = LinkedHashSet<StreamingServiceType>()
@@ -43,29 +42,22 @@ class StreamingSettingsModel(
 
     override fun close() = sourceConnection.close()
 
-    private fun onSourceChanged(op: MappingOp<StreamingServiceType, IStreamingService>) {
+    private fun onSourceChanged(op: SetOp<StreamingServiceType>) {
         LOG.fine("onSourceChanged($op)")
 
-        if (op.key in ignoredServices) {
-            LOG.fine("Skipping ${op.key} as ignored")
-            return
-        }
-
         when (op) {
-            is MappingOp.Added -> {
-                if (!storage.add(op.key))
-                    throw IllegalArgumentException("${op.key} is already in storage")
+            is SetOp.Added -> {
+                if (!storage.add(op.value))
+                    throw IllegalArgumentException("${op.value} is already in storage")
                 notifyItemInserted(storage.size - 1)
             }
-            is MappingOp.Removed -> {
-                val index = storage.indexOf(op.key)
+            is SetOp.Removed -> {
+                val index = storage.indexOf(op.value)
                 if (index < 0)
-                    IllegalArgumentException("${op.key} is not present in storage")
-
-                storage.remove(op.key)
+                    IllegalArgumentException("${op.value} is not present in storage")
+                storage.remove(op.value)
                 notifyItemRemoved(index)
             }
-            else -> {}
         }
     }
 
