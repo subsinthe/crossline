@@ -40,7 +40,7 @@ class SearchModel(
         ViewType.Item.code -> {
             ItemHolder(
                 LayoutInflater.from(parent.context).inflate(
-                    R.layout.search_result, parent, false
+                    R.layout.search_result_item, parent, false
                 ) as View
             )
         }
