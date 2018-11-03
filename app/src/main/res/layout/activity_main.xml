@@ -8,67 +8,11 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="true" >
 
-    <ViewFlipper
-        android:id="@+id/main_view_flipper"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" >
-
-        <LinearLayout
-            android:id="@+id/main_layout"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical" >
-
-            <android.support.v7.widget.Toolbar
-                android:id="@+id/main_toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
-
-            <android.support.v7.widget.RecyclerView
-                android:id="@+id/search_results"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scrollbars="vertical" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/settings_layout"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical" >
-
-            <android.support.v7.widget.Toolbar
-                android:id="@+id/settings_toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
-
-            <TextView
-                android:id="@+id/streaming_settings_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="6dip"
-                android:gravity="left"
-                android:text="Streaming"
-                android:textSize="26sp" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:padding="6dip"
-                android:background="#c0c0c0"/>
-
-            <android.support.v7.widget.RecyclerView
-                android:id="@+id/streaming_settings_view"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scrollbars="vertical" />
-
-        </LinearLayout>
-
-    </ViewFlipper>
+    <FrameLayout
+       android:id="@+id/content_frame"
+       android:layout_width="match_parent"
+       android:layout_height="match_parent">
+    </FrameLayout>
 
     <android.support.design.widget.NavigationView
         android:id="@+id/navigation_view"

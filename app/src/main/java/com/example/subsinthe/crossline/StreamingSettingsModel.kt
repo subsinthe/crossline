@@ -10,12 +10,10 @@ import com.example.subsinthe.crossline.util.IObservableSet
 import com.example.subsinthe.crossline.util.SetOp
 import com.example.subsinthe.crossline.util.loggerFor
 import kotlin.collections.LinkedHashSet
-import kotlin.collections.Set
 import java.io.Closeable
 
 class StreamingSettingsModel(
-    source: IObservableSet<StreamingServiceType>,
-    private val ignoredServices: Set<StreamingServiceType>
+    source: IObservableSet<StreamingServiceType>
 ) : RecyclerView.Adapter<StreamingSettingsModel.ItemHolder>(), Closeable {
     private val storage = LinkedHashSet<StreamingServiceType>()
     private val sourceConnection = source.subscribe { onSourceChanged(it) }
