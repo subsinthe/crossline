@@ -30,14 +30,10 @@ class FilesystemStreamingService(
     private lateinit var root: String
     private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val workerScope = worker.createScope()
-    private val searcher = Searcher(workerScope, scope, entryFilter = ::containsFileFilter)
+    private val searcher = Searcher(workerScope, scope)
     private val rootConnection = settings.root.subscribe { onRootChanged(it) }
 
-    private class Searcher(
-        private val worker: CoroutineScope,
-        private val scope: CoroutineScope,
-        private val entryFilter: (File, String) -> Boolean
-    ) {
+    private class Searcher(private val worker: CoroutineScope, private val scope: CoroutineScope) {
         private val jobs = HashMap<UUID, Job>()
 
         fun search(query: String, root: String): AsyncIterator<MusicTrack> {
@@ -67,15 +63,12 @@ class FilesystemStreamingService(
                 for (entry in rootEntry.walkTopDown()) {
                     yield()
 
-                    LOG.try_({ "Entry $entry interpretation failed" }) {
-                        if (entry.isFile() && entryFilter(entry, query))
-                            entry.asMusicTrack()
-                        else
-                            null
-                    }?.let { track ->
-                        if (knownTracks.add(track))
-                            output.send(track)
+                    val track = LOG.try_({ "Entry $entry interpretation failed" }) {
+                        if (entry.isFile()) entry.asMusicTrack() else null
                     }
+
+                    if (track != null && matchQuery(query, track) && knownTracks.add(track))
+                        output.send(track)
                 }
             }
 
@@ -85,6 +78,11 @@ class FilesystemStreamingService(
                 }
             }
         }
+
+        private fun matchQuery(query: String, track: MusicTrack) =
+            track.title.contains(query, ignoreCase = true) ||
+            track.artist?.contains(query, ignoreCase = true) ?: false ||
+            track.album?.contains(query, ignoreCase = true) ?: false
     }
 
     class Settings(root: String) {
@@ -138,5 +136,3 @@ private val SUPPORTED_AUDIO_FORMATS = hashSetOf(
     SupportedFileFormat.FLAC.getFilesuffix(),
     SupportedFileFormat.WAV.getFilesuffix()
 )
-
-private fun containsFileFilter(file: File, query: String) = file.getAbsolutePath().contains(query)
