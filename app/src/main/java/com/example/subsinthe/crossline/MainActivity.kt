@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.main_activity)
         permissionListener.requestReadExternalStorage {
             val service = FilesystemStreamingService(
-                Application.uiScope, Application.streamingSettings.filesystem
+                Application.uiScope, Application.streamingSettings.filesystem, cacheSize = 10000
             )
             Application.streamingServices.put(service.type, service)
             if (Application.streamingService.value.type == StreamingServiceType.Dummy)

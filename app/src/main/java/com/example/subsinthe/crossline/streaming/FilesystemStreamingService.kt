@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
+import org.apache.commons.collections4.map.LRUMap
 import org.apache.commons.io.FilenameUtils
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.audio.SupportedFileFormat
@@ -25,16 +26,22 @@ import java.util.concurrent.Executors
 
 class FilesystemStreamingService(
     private val scope: CoroutineScope,
-    settings: Settings
+    settings: Settings,
+    cacheSize: Int
 ) : IStreamingService {
     private lateinit var root: String
     private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val workerScope = worker.createScope()
-    private val searcher = Searcher(workerScope, scope)
+    private val searcher = Searcher(workerScope, scope, cacheSize)
     private val rootConnection = settings.root.subscribe { onRootChanged(it) }
 
-    private class Searcher(private val worker: CoroutineScope, private val scope: CoroutineScope) {
+    private class Searcher(
+        private val worker: CoroutineScope,
+        private val scope: CoroutineScope,
+        cacheSize: Int
+    ) {
         private val jobs = HashMap<UUID, Job>()
+        private val cache = LRUMap<String, MusicTrack>(cacheSize)
 
         fun search(query: String, root: String): AsyncIterator<MusicTrack> {
             LOG.info("search($query in $root)")
@@ -64,7 +71,12 @@ class FilesystemStreamingService(
                     yield()
 
                     val track = LOG.try_({ "Entry $entry interpretation failed" }) {
-                        if (entry.isFile()) entry.asMusicTrack() else null
+                        if (entry.isFile()) {
+                            val path = entry.getAbsolutePath()
+                            cache.get(path) ?: entry.asMusicTrack()?.also { cache.set(path, it) }
+                        } else {
+                            null
+                        }
                     }
 
                     if (track != null && matchQuery(query, track) && knownTracks.add(track))
