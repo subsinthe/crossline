@@ -31,14 +31,7 @@ class MainActivity : AppCompatActivity() {
         AndroidLoggingHandler.reset(AndroidLoggingHandler())
 
         setContentView(R.layout.main_activity)
-        permissionListener.requestReadExternalStorage {
-            val service = FilesystemStreamingService(
-                Application.uiScope, Application.streamingSettings.filesystem, cacheSize = 10000
-            )
-            Application.streamingServices.put(service.type, service)
-            if (Application.streamingService.value.type == StreamingServiceType.Dummy)
-                Application.streamingService.value = service
-        }
+        Application.initialize(permissionListener)
 
         val navigationView = findViewById<NavigationView>(R.id.navigation_view)
         navigationView.setNavigationItemSelectedListener { onNavigationItemSelected(it) }
