@@ -2,8 +2,10 @@ package com.example.subsinthe.crossline.streaming
 
 import com.example.subsinthe.crossline.util.AsyncIterator
 import com.example.subsinthe.crossline.util.ObservableValue
+import com.example.subsinthe.crossline.util.TimedLruCache
 import com.example.subsinthe.crossline.util.createScope
 import com.example.subsinthe.crossline.util.loggerFor
+import com.example.subsinthe.crossline.util.setTimer
 import com.example.subsinthe.crossline.util.try_
 import com.example.subsinthe.crossline.util.useOutput
 import kotlinx.coroutines.channels.Channel
@@ -15,7 +17,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
-import org.apache.commons.collections4.map.LRUMap
 import org.apache.commons.io.FilenameUtils
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.audio.SupportedFileFormat
@@ -27,21 +28,24 @@ import java.util.concurrent.Executors
 class FilesystemStreamingService(
     private val scope: CoroutineScope,
     settings: Settings,
-    cacheSize: Int
+    cacheSize: Int,
+    private val cacheLifespan: Long
 ) : IStreamingService {
     private lateinit var root: String
     private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val workerScope = worker.createScope()
-    private val searcher = Searcher(workerScope, scope, cacheSize)
+    private val searcher = Searcher(workerScope, scope, cacheSize, cacheLifespan)
+    private var backgroundSearch: Job? = null
     private val rootConnection = settings.root.subscribe { onRootChanged(it) }
 
     private class Searcher(
         private val worker: CoroutineScope,
         private val scope: CoroutineScope,
-        cacheSize: Int
+        cacheSize: Int,
+        cacheLifespan: Long
     ) {
         private val jobs = HashMap<UUID, Job>()
-        private val cache = LRUMap<String, MusicTrack>(cacheSize)
+        private val cache = TimedLruCache<String, MusicTrack>(cacheSize, cacheLifespan)
 
         fun search(query: String, root: String): AsyncIterator<MusicTrack> {
             LOG.info("search($query in $root)")
@@ -112,8 +116,19 @@ class FilesystemStreamingService(
     override suspend fun search(query: String) = searcher.search(query, root)
 
     private fun onRootChanged(root_: String) {
+        backgroundSearch?.cancel()
         searcher.cancel()
+
         root = root_
+        backgroundSearch = scope.setTimer(cacheLifespan) { backgroundSearchJob(root) }
+    }
+
+    private suspend fun backgroundSearchJob(root: String) {
+        LOG.info("Starting background search")
+
+        searcher.search("", root).use { iterator -> for (ignore in iterator) {} }
+
+        LOG.info("Background search finished")
     }
 
     companion object { val LOG = loggerFor<FilesystemStreamingService>() }
