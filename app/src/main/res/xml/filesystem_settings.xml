@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <EditTextPreference
+        android:key="root_edit"
+        android:title="Music directory"
+        android:summary="Customize music collection directory" />
+
+</PreferenceScreen>
