@@ -9,6 +9,8 @@ import android.support.v7.preference.PreferenceFragmentCompat
 import android.support.v7.widget.Toolbar
 import android.view.MenuItem
 import android.view.Menu
+import android.widget.Toast
+import java.io.File
 
 class SettingsActivity : AppCompatActivity() {
     private lateinit var actionBar: ActionBar
@@ -30,13 +32,19 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             addPreferencesFromResource(R.xml.filesystem_settings)
 
+            val activity = getActivity() as SettingsActivity
             val settings = Application.streamingSettings.filesystem
 
             val rootEdit = findPreference("root_edit") as EditTextPreference
             rootEdit.setText(settings.root.value)
             rootEdit.setOnPreferenceChangeListener { _, newValue ->
-                settings.root.value = newValue!!.toString()
-                true
+                val newRoot = newValue!!.toString()
+                val isValid = try { File(newRoot).exists() } catch (ex: Throwable) { false }
+                if (isValid)
+                    settings.root.value = newRoot
+                else
+                    activity.toast("$newRoot does not exist. Please choose valid path")
+                isValid
             }
         }
     }
@@ -89,6 +97,8 @@ class SettingsActivity : AppCompatActivity() {
         actionBar.setTitle(manager.getBackStackEntryAt(currentFragment).getName())
         return true
     }
+
+    fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
     companion object {
         enum class FragmentDescriptor(val builder: () -> Fragment, val title: String) {
