@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view" >
+
+    <item android:title="Music" >
+        <menu>
+            <item
+                android:id="@+id/drawer_music_favourites"
+                android:icon="@drawable/ic_favorite"
+                android:title="Favourites" />
+            <item
+                android:id="@+id/drawer_music_filesystem"
+                android:icon="@drawable/ic_insert_drive_file"
+                android:title="Files" />
+            <item
+                android:id="@+id/drawer_music_yandex_disk"
+                android:icon="@drawable/ic_ufo"
+                android:title="Yandex.Disk" />
+            <item
+                android:id="@+id/drawer_music_soulseek"
+                android:icon="@drawable/ic_bird"
+                android:title="Soulseek" />
+        </menu>
+    </item>
+
+    <group
+        android:checkableBehavior="single">
+        <item
+            android:id="@+id/drawer_settings"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Settings" />
+    </group>
+
+</menu>
