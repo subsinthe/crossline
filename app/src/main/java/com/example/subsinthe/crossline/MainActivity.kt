@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity() {
 
         AndroidLoggingHandler.reset(AndroidLoggingHandler())
 
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.main_activity)
         permissionListener.requestReadExternalStorage {
             val service = FilesystemStreamingService(
                 Application.uiScope, Application.streamingSettings.filesystem
