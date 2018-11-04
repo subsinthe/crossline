@@ -1,7 +1,7 @@
 package com.example.subsinthe.crossline
 
+import android.content.Intent
 import android.os.Bundle
-import android.os.Environment
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
@@ -13,33 +13,15 @@ import android.support.v7.widget.SearchView
 import android.support.v7.widget.Toolbar
 import android.view.MenuItem
 import android.view.Menu
-import com.example.subsinthe.crossline.network.VertxSocketFactory as SocketFactory
-import com.example.subsinthe.crossline.streaming.DummyStreamingService
-import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.FilesystemStreamingService
 import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.streaming.ServiceType as StreamingServiceType
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
 import com.example.subsinthe.crossline.util.ObservableArrayList
-import com.example.subsinthe.crossline.util.ObservableValue
 import com.example.subsinthe.crossline.util.TokenPool
 import com.example.subsinthe.crossline.util.Token
-import com.example.subsinthe.crossline.util.createScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.android.Main
 
 class MainActivity : AppCompatActivity() {
-    private val uiScope = Dispatchers.Main.createScope()
-    private val ioScope = Dispatchers.IO.createScope()
-    private val socketFactory = SocketFactory(ioScope)
-    private val filesystemStreamingServiceSettings =
-        ObservableValue<FilesystemStreamingService.Settings>(FilesystemStreamingService.Settings(
-            root = Environment.getExternalStorageDirectory().toString()
-        ))
-    private val streamingServices = HashMap<StreamingServiceType, IStreamingService>()
-    private val streamingService = ObservableValue<IStreamingService>(DummyStreamingService())
     private val permissionListener = PermissionListener(this)
     private val tokens = TokenPool()
 
@@ -48,15 +30,21 @@ class MainActivity : AppCompatActivity() {
 
         AndroidLoggingHandler.reset(AndroidLoggingHandler())
 
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.main_activity)
         permissionListener.requestReadExternalStorage {
-            val service = FilesystemStreamingService(uiScope, filesystemStreamingServiceSettings)
-            streamingServices.put(service.type, service)
-            if (streamingService.value.type == StreamingServiceType.Dummy)
-                streamingService.value = service
+            val service = FilesystemStreamingService(
+                Application.uiScope, Application.streamingSettings.filesystem
+            )
+            Application.streamingServices.put(service.type, service)
+            if (Application.streamingService.value.type == StreamingServiceType.Dummy)
+                Application.streamingService.value = service
         }
 
+        val navigationView = findViewById<NavigationView>(R.id.navigation_view)
+        navigationView.setNavigationItemSelectedListener { onNavigationItemSelected(it) }
+
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
+
         setSupportActionBar(toolbar)
         supportActionBar!!.apply {
             setDisplayShowTitleEnabled(false)
@@ -66,7 +54,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         val drawerLayout = findViewById<DrawerLayout>(R.id.drawer_layout)
-        val navigationView = findViewById<NavigationView>(R.id.navigation_view)
         val toggle = ActionBarDrawerToggle(
             this,
             drawerLayout,
@@ -76,23 +63,43 @@ class MainActivity : AppCompatActivity() {
         )
         drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
+    }
 
-        navigationView.setNavigationItemSelectedListener(
-            object : NavigationView.OnNavigationItemSelectedListener {
-                override fun onNavigationItemSelected(item: MenuItem): Boolean {
-                    drawerLayout.closeDrawer(GravityCompat.START)
-                    return true
-                }
-            }
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        getMenuInflater().inflate(R.menu.main, menu)
+
+        val layoutManager = LinearLayoutManager(this)
+        val searchResults = ObservableArrayList<MusicTrack>()
+        val searchMoreListener = LoadMoreScrollListener(layoutManager)
+        val searchQueryListener = SearchQueryListener(
+            Application.streamingService,
+            Application.uiScope,
+            searchResults,
+            searchMoreListener.channel,
+            loadBatchSize = 10,
+            searchDelayOnQueryChange = 1500
         )
+        val searchModel = SearchModel(searchResults, searchQueryListener.isSearchActive)
+
+        val searchResultsView = findViewById<RecyclerView>(R.id.search_results)
+        val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
+
+        tokens += Token(searchModel)
+        tokens += Token(searchQueryListener)
+
+        searchResultsView.layoutManager = layoutManager
+        searchResultsView.adapter = searchModel
+        searchResultsView.addOnScrollListener(searchMoreListener)
+
+        searchView.setOnQueryTextListener(searchQueryListener)
+
+        return true
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
         tokens.close()
-        streamingService.value.close()
-        socketFactory.close()
     }
 
     override fun onBackPressed() {
@@ -103,39 +110,6 @@ class MainActivity : AppCompatActivity() {
             super.onBackPressed()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        getMenuInflater().inflate(R.menu.main, menu)
-
-        val mainActivity = this
-        uiScope.launch {
-            val layoutManager = LinearLayoutManager(mainActivity)
-            val searchResults = ObservableArrayList<MusicTrack>()
-            val searchMoreListener = LoadMoreScrollListener(layoutManager)
-            val searchQueryListener = SearchQueryListener(
-                streamingService,
-                uiScope,
-                searchResults,
-                searchMoreListener.channel,
-                loadBatchSize = 10,
-                searchDelayOnQueryChange = 1500
-            )
-            val searchModel = SearchModel(searchResults, searchQueryListener.isSearchActive)
-
-            mainActivity.tokens += Token(searchModel)
-            mainActivity.tokens += Token(searchQueryListener)
-
-            findViewById<RecyclerView>(R.id.search_results).apply {
-                this.layoutManager = layoutManager
-                adapter = searchModel
-                addOnScrollListener(searchMoreListener)
-            }
-
-            val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
-            searchView.setOnQueryTextListener(searchQueryListener)
-        }
-        return true
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
@@ -143,5 +117,15 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         permissionListener.report(requestCode, permissions, grantResults)
+    }
+
+    private fun onNavigationItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.drawer_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+            }
+        }
+        findViewById<DrawerLayout>(R.id.drawer_layout).closeDrawer(GravityCompat.START)
+        return true
     }
 }
