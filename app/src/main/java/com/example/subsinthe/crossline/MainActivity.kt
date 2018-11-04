@@ -6,6 +6,7 @@ import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v4.widget.DrawerLayout
 import android.support.v7.app.ActionBarDrawerToggle
+import android.support.v7.app.ActionBar
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
@@ -13,7 +14,7 @@ import android.support.v7.widget.SearchView
 import android.support.v7.widget.Toolbar
 import android.view.MenuItem
 import android.view.Menu
-import com.example.subsinthe.crossline.streaming.FilesystemStreamingService
+import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.streaming.ServiceType as StreamingServiceType
 import com.example.subsinthe.crossline.util.AndroidLoggingHandler
@@ -31,14 +32,7 @@ class MainActivity : AppCompatActivity() {
         AndroidLoggingHandler.reset(AndroidLoggingHandler())
 
         setContentView(R.layout.main_activity)
-        permissionListener.requestReadExternalStorage {
-            val service = FilesystemStreamingService(
-                Application.uiScope, Application.streamingSettings.filesystem
-            )
-            Application.streamingServices.put(service.type, service)
-            if (Application.streamingService.value.type == StreamingServiceType.Dummy)
-                Application.streamingService.value = service
-        }
+        Application.initialize(permissionListener)
 
         val navigationView = findViewById<NavigationView>(R.id.navigation_view)
         navigationView.setNavigationItemSelectedListener { onNavigationItemSelected(it) }
@@ -46,12 +40,11 @@ class MainActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
 
         setSupportActionBar(toolbar)
-        supportActionBar!!.apply {
-            setDisplayShowTitleEnabled(false)
-            setHomeButtonEnabled(true)
-            setDisplayHomeAsUpEnabled(true)
-            setHomeAsUpIndicator(R.drawable.ic_dehaze)
-        }
+        val actionBar = supportActionBar!!
+        actionBar.setHomeButtonEnabled(true)
+        actionBar.setDisplayHomeAsUpEnabled(true)
+        actionBar.setHomeAsUpIndicator(R.drawable.ic_dehaze)
+        tokens += Application.streamingService.subscribe { setActionBarTitle(actionBar, it) }
 
         val drawerLayout = findViewById<DrawerLayout>(R.id.drawer_layout)
         val toggle = ActionBarDrawerToggle(
@@ -117,6 +110,14 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         permissionListener.report(requestCode, permissions, grantResults)
+    }
+
+    private fun setActionBarTitle(actionBar: ActionBar, service: IStreamingService) {
+        val type = when (service.type) {
+            StreamingServiceType.Dummy -> null
+            StreamingServiceType.Filesystem -> "files"
+        }
+        actionBar.setTitle(type?.let { "Browse $it" } ?: "")
     }
 
     private fun onNavigationItemSelected(item: MenuItem): Boolean {

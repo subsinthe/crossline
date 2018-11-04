@@ -2,8 +2,10 @@ package com.example.subsinthe.crossline.streaming
 
 import com.example.subsinthe.crossline.util.AsyncIterator
 import com.example.subsinthe.crossline.util.ObservableValue
+import com.example.subsinthe.crossline.util.TimedLruCache
 import com.example.subsinthe.crossline.util.createScope
 import com.example.subsinthe.crossline.util.loggerFor
+import com.example.subsinthe.crossline.util.setTimer
 import com.example.subsinthe.crossline.util.try_
 import com.example.subsinthe.crossline.util.useOutput
 import kotlinx.coroutines.channels.Channel
@@ -25,20 +27,25 @@ import java.util.concurrent.Executors
 
 class FilesystemStreamingService(
     private val scope: CoroutineScope,
-    settings: Settings
+    settings: Settings,
+    cacheSize: Int,
+    private val cacheLifespan: Long
 ) : IStreamingService {
     private lateinit var root: String
     private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val workerScope = worker.createScope()
-    private val searcher = Searcher(workerScope, scope, entryFilter = ::containsFileFilter)
+    private val searcher = Searcher(workerScope, scope, cacheSize, cacheLifespan)
+    private var backgroundSearch: Job? = null
     private val rootConnection = settings.root.subscribe { onRootChanged(it) }
 
     private class Searcher(
         private val worker: CoroutineScope,
         private val scope: CoroutineScope,
-        private val entryFilter: (File, String) -> Boolean
+        cacheSize: Int,
+        cacheLifespan: Long
     ) {
         private val jobs = HashMap<UUID, Job>()
+        private val cache = TimedLruCache<String, MusicTrack>(cacheSize, cacheLifespan)
 
         fun search(query: String, root: String): AsyncIterator<MusicTrack> {
             LOG.info("search($query in $root)")
@@ -67,15 +74,17 @@ class FilesystemStreamingService(
                 for (entry in rootEntry.walkTopDown()) {
                     yield()
 
-                    LOG.try_({ "Entry $entry interpretation failed" }) {
-                        if (entry.isFile() && entryFilter(entry, query))
-                            entry.asMusicTrack()
-                        else
+                    val track = LOG.try_({ "Entry $entry interpretation failed" }) {
+                        if (entry.isFile()) {
+                            val path = entry.getAbsolutePath()
+                            cache.get(path) ?: entry.asMusicTrack()?.also { cache.set(path, it) }
+                        } else {
                             null
-                    }?.let { track ->
-                        if (knownTracks.add(track))
-                            output.send(track)
+                        }
                     }
+
+                    if (track != null && matchQuery(query, track) && knownTracks.add(track))
+                        output.send(track)
                 }
             }
 
@@ -85,6 +94,11 @@ class FilesystemStreamingService(
                 }
             }
         }
+
+        private fun matchQuery(query: String, track: MusicTrack) =
+            track.title.contains(query, ignoreCase = true) ||
+            track.artist?.contains(query, ignoreCase = true) ?: false ||
+            track.album?.contains(query, ignoreCase = true) ?: false
     }
 
     class Settings(root: String) {
@@ -102,8 +116,19 @@ class FilesystemStreamingService(
     override suspend fun search(query: String) = searcher.search(query, root)
 
     private fun onRootChanged(root_: String) {
+        backgroundSearch?.cancel()
         searcher.cancel()
+
         root = root_
+        backgroundSearch = scope.setTimer(cacheLifespan) { backgroundSearchJob(root) }
+    }
+
+    private suspend fun backgroundSearchJob(root: String) {
+        LOG.info("Starting background search")
+
+        searcher.search("", root).use { iterator -> for (ignore in iterator) {} }
+
+        LOG.info("Background search finished")
     }
 
     companion object { val LOG = loggerFor<FilesystemStreamingService>() }
@@ -138,5 +163,3 @@ private val SUPPORTED_AUDIO_FORMATS = hashSetOf(
     SupportedFileFormat.FLAC.getFilesuffix(),
     SupportedFileFormat.WAV.getFilesuffix()
 )
-
-private fun containsFileFilter(file: File, query: String) = file.getAbsolutePath().contains(query)
