@@ -11,11 +11,8 @@ class Multicast<T> : IObservable<T> {
         val uuid = UUID.randomUUID()
         handlers.put(uuid, CancellableHandler(handler))
         return Token {
-            val handler = handlers.remove(uuid)
-            if (handler != null)
-                handler.cancel()
-            else
-                LOG.severe("Internal error: Handler for $uuid was already removed")
+            handlers.remove(uuid)?.let { it.cancel() }
+                ?: LOG.severe("Internal error: Handler for $uuid was already removed")
         }
     }
 
