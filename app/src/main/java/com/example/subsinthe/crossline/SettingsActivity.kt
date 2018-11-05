@@ -22,7 +22,7 @@ class SettingsActivity : AppCompatActivity() {
             val activity = getActivity() as SettingsActivity
 
             findPreference("filesystem_button").setOnPreferenceClickListener { _ ->
-                activity.pushFragment(FragmentDescriptor.FilesystemSettings)
+                activity.pushFragment(FilesystemSettings(), "Files")
                 true
             }
         }
@@ -79,34 +79,14 @@ class SettingsActivity : AppCompatActivity() {
         super.onBackPressed()
     }
 
-    fun pushFragment(descriptor: FragmentDescriptor) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.content_frame, descriptor.builder())
-            .addToBackStack(descriptor.title)
-            .commit()
-        actionBar.setTitle(descriptor.title)
+    fun pushFragment(fragment: Fragment, title: String) {
+        supportFragmentManager.pushFragment(R.id.content_frame, fragment, title)
+        actionBar.setTitle(title)
     }
 
-    fun tryPopFragment(): Boolean {
-        val manager = supportFragmentManager
-        val fragmentCount = manager.getBackStackEntryCount()
-        if (fragmentCount == 0)
-            return false
-
-        manager.popBackStack()
-        if (fragmentCount == 1)
-            return true
-
-        val currentFragment = fragmentCount - 2
-        actionBar.setTitle(manager.getBackStackEntryAt(currentFragment).getName())
-        return true
+    fun tryPopFragment() = supportFragmentManager.tryPopFragment().let { title ->
+        title?.also { actionBar.setTitle(title) }.let { it != null }
     }
 
     fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-
-    companion object {
-        enum class FragmentDescriptor(val builder: () -> Fragment, val title: String) {
-            FilesystemSettings({ FilesystemSettings() }, "Filesystem")
-        }
-    }
 }
