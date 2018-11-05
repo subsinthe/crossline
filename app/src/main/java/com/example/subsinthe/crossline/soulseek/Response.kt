@@ -60,14 +60,16 @@ sealed class PeerResponse : Response {
     ) : PeerResponse() {
         companion object {
             fun deserialize(buffer: ByteBuffer) =
-                Zip.decompress(buffer).let { buffer ->
+                Zip.decompress(buffer).let { decompressed ->
                 SearchReply(
-                    user = DataType.Str.deserialize(buffer),
-                    ticket = DataType.I32.deserialize(buffer),
-                    results = DataType.List.deserialize<Result>({ Result.deserialize(it) }, buffer),
-                    slotfree = DataType.Bool.deserialize(buffer),
-                    avgspeed = DataType.I32.deserialize(buffer),
-                    queueLength = DataType.I64.deserialize(buffer)
+                    user = DataType.Str.deserialize(decompressed),
+                    ticket = DataType.I32.deserialize(decompressed),
+                    results = DataType.List.deserialize<Result>(
+                        { Result.deserialize(it) }, decompressed
+                    ),
+                    slotfree = DataType.Bool.deserialize(decompressed),
+                    avgspeed = DataType.I32.deserialize(decompressed),
+                    queueLength = DataType.I64.deserialize(decompressed)
                 )
             }
         }
