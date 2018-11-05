@@ -19,7 +19,7 @@ class SearchQueryListener(
     private val searchResults: MutableCollection<MusicTrack>,
     private val searchMore: ReceiveChannel<Unit>,
     private val loadBatchSize: Int,
-    private val searchDelayOnQueryChange: Int
+    private val delayOnQueryChange: Int
 ) : SearchView.OnQueryTextListener, Closeable {
     private val _isSearchActive = ObservableValue<Boolean>(false)
     private lateinit var streamingService: IStreamingService
@@ -59,7 +59,7 @@ class SearchQueryListener(
 
         searchJobHandle = scope.launch {
             if (doDelay)
-                delay(searchDelayOnQueryChange)
+                delay(delayOnQueryChange)
             searchJob(query)
         }
     }

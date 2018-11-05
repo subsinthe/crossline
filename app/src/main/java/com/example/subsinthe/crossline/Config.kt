@@ -4,7 +4,13 @@ import android.content.Context
 import android.os.Environment
 
 class Config(context: Context) {
+    val ui = UiConfig(context)
     val filesystem = FilesystemConfig(context)
+}
+
+class UiConfig(context: Context) : ConfigSection(context, "filesystem") {
+    val searchLoadBatchSize = 10
+    val searchDelayOnQueryChange = 1500
 }
 
 class FilesystemConfig(context: Context) : ConfigSection(context, "filesystem") {
