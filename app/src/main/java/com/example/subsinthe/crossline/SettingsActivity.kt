@@ -59,7 +59,8 @@ class SettingsActivity : AppCompatActivity() {
         actionBar.setHomeButtonEnabled(true)
         actionBar.setDisplayHomeAsUpEnabled(true)
 
-        pushFragment(FragmentDescriptor.Settings)
+        supportFragmentManager.beginTransaction().replace(R.id.content_frame, Settings()).commit()
+        actionBar.setTitle("Settings")
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -77,6 +78,12 @@ class SettingsActivity : AppCompatActivity() {
         return super.onOptionsItemSelected(menuItem)
     }
 
+    override fun onBackPressed() {
+        if (tryPopFragment())
+            return
+        super.onBackPressed()
+    }
+
     fun pushFragment(descriptor: FragmentDescriptor) {
         supportFragmentManager.beginTransaction()
             .replace(R.id.content_frame, descriptor.builder())
@@ -88,10 +95,12 @@ class SettingsActivity : AppCompatActivity() {
     fun tryPopFragment(): Boolean {
         val manager = supportFragmentManager
         val fragmentCount = manager.getBackStackEntryCount()
-        if (fragmentCount == 1)
+        if (fragmentCount == 0)
             return false
 
         manager.popBackStack()
+        if (fragmentCount == 1)
+            return true
 
         val currentFragment = fragmentCount - 2
         actionBar.setTitle(manager.getBackStackEntryAt(currentFragment).getName())
@@ -102,7 +111,6 @@ class SettingsActivity : AppCompatActivity() {
 
     companion object {
         enum class FragmentDescriptor(val builder: () -> Fragment, val title: String) {
-            Settings({ Settings() }, "Settings"),
             FilesystemSettings({ FilesystemSettings() }, "Filesystem")
         }
     }
