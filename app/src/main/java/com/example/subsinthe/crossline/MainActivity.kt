@@ -85,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         searchResultsView.addOnScrollListener(searchMoreListener)
 
         searchView.setOnQueryTextListener(searchQueryListener)
+        searchView.addOnAttachStateChangeListener(searchQueryListener)
 
         return true
     }
