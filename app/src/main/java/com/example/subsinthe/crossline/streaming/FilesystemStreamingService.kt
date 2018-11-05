@@ -78,14 +78,14 @@ class FilesystemStreamingService(
 
                 val knownTracks = HashSet<MusicTrack>()
                 for (entry in rootEntry.walkTopDown()) {
-                    yield()
-
                     LOG.try_({ "Entry $entry processing failed" }) {
                         processEntry(entry, refreshCache)
                     }?.let { track ->
                         if (matchQuery(query, track) && knownTracks.add(track))
                             output.send(track)
                     }
+
+                    yield()
                 }
             }
 
