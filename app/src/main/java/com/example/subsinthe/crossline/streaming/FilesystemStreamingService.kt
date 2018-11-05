@@ -48,12 +48,16 @@ class FilesystemStreamingService(
         private val jobs = HashMap<UUID, Job>()
         private val cache = TimedLruCache<String, MusicTrack>(cacheSize, cacheLifespan)
 
-        fun search(query: String, root: String): AsyncIterator<MusicTrack> {
+        fun search(
+            query: String,
+            root: String,
+            refreshCache: Boolean = false
+        ): AsyncIterator<MusicTrack> {
             LOG.info("search($query in $root)")
 
             val iterator = Channel<MusicTrack>()
             val jobId = UUID.randomUUID()
-            val job = worker.launch { searchJob(jobId, iterator, query, root) }
+            val job = worker.launch { searchJob(jobId, iterator, query, root, refreshCache) }
             jobs.put(jobId, job)
             return AsyncIterator(iterator)
         }
@@ -64,7 +68,8 @@ class FilesystemStreamingService(
             id: UUID,
             output: SendChannel<MusicTrack>,
             query: String,
-            root: String
+            root: String,
+            refreshCache: Boolean
         ) {
             output.useOutput {
                 val rootEntry = File(root)
@@ -73,19 +78,14 @@ class FilesystemStreamingService(
 
                 val knownTracks = HashSet<MusicTrack>()
                 for (entry in rootEntry.walkTopDown()) {
-                    yield()
-
-                    val track = LOG.try_({ "Entry $entry interpretation failed" }) {
-                        if (entry.isFile()) {
-                            val path = entry.getAbsolutePath()
-                            cache.get(path) ?: entry.asMusicTrack()?.also { cache.set(path, it) }
-                        } else {
-                            null
-                        }
+                    LOG.try_({ "Entry $entry processing failed" }) {
+                        processEntry(entry, refreshCache)
+                    }?.let { track ->
+                        if (matchQuery(query, track) && knownTracks.add(track))
+                            output.send(track)
                     }
 
-                    if (track != null && matchQuery(query, track) && knownTracks.add(track))
-                        output.send(track)
+                    yield()
                 }
             }
 
@@ -95,6 +95,20 @@ class FilesystemStreamingService(
                 }
             }
         }
+
+        private fun processEntry(entry: File, refreshCache: Boolean) =
+            if (entry.isFile()) {
+                val path = entry.getAbsolutePath()
+                val retrieveEntry = {
+                    entry.asMusicTrack()?.also { cache.set(path, it) }
+                }
+                if (refreshCache)
+                    retrieveEntry()
+                else
+                    cache.get(path) ?: retrieveEntry()
+            } else {
+                null
+            }
 
         private fun matchQuery(query: String, track: MusicTrack) =
             track.title.contains(query, ignoreCase = true) ||
@@ -127,7 +141,9 @@ class FilesystemStreamingService(
     private suspend fun backgroundSearchJob(root: String) {
         LOG.info("Starting background search")
 
-        searcher.search("", root).use { iterator -> for (ignore in iterator) {} }
+        searcher.search("", root, refreshCache = true).use {
+            iterator -> for (ignore in iterator) {}
+        }
 
         LOG.info("Background search finished")
     }
