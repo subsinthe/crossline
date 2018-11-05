@@ -80,23 +80,12 @@ class FilesystemStreamingService(
                 for (entry in rootEntry.walkTopDown()) {
                     yield()
 
-                    val track = LOG.try_({ "Entry $entry retrieval failed" }) {
-                        if (entry.isFile()) {
-                            val path = entry.getAbsolutePath()
-                            val retrieveEntry = {
-                                entry.asMusicTrack()?.also { cache.set(path, it) }
-                            }
-                            if (refreshCache)
-                                retrieveEntry()
-                            else
-                                cache.get(path) ?: retrieveEntry()
-                        } else {
-                            null
-                        }
+                    LOG.try_({ "Entry $entry processing failed" }) {
+                        processEntry(entry, refreshCache)
+                    }?.let { track ->
+                        if (matchQuery(query, track) && knownTracks.add(track))
+                            output.send(track)
                     }
-
-                    if (track != null && matchQuery(query, track) && knownTracks.add(track))
-                        output.send(track)
                 }
             }
 
@@ -106,6 +95,20 @@ class FilesystemStreamingService(
                 }
             }
         }
+
+        private fun processEntry(entry: File, refreshCache: Boolean) =
+            if (entry.isFile()) {
+                val path = entry.getAbsolutePath()
+                val retrieveEntry = {
+                    entry.asMusicTrack()?.also { cache.set(path, it) }
+                }
+                if (refreshCache)
+                    retrieveEntry()
+                else
+                    cache.get(path) ?: retrieveEntry()
+            } else {
+                null
+            }
 
         private fun matchQuery(query: String, track: MusicTrack) =
             track.title.contains(query, ignoreCase = true) ||
