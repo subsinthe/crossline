@@ -78,7 +78,7 @@ class FilesystemStreamingService(
                     val track = LOG.try_({ "Entry $entry interpretation failed" }) {
                         if (entry.isFile()) {
                             val path = entry.getAbsolutePath()
-                            cache.get(path) ?: entry.asMusicTrack()?.also { cache.set(path, it) }
+                            cache.get(path) ?: (entry.asMusicTrack()?.also { cache.set(path, it) })
                         } else {
                             null
                         }
