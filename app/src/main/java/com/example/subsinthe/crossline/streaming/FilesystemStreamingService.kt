@@ -48,12 +48,16 @@ class FilesystemStreamingService(
         private val jobs = HashMap<UUID, Job>()
         private val cache = TimedLruCache<String, MusicTrack>(cacheSize, cacheLifespan)
 
-        fun search(query: String, root: String): AsyncIterator<MusicTrack> {
+        fun search(
+            query: String,
+            root: String,
+            refreshCache: Boolean = false
+        ): AsyncIterator<MusicTrack> {
             LOG.info("search($query in $root)")
 
             val iterator = Channel<MusicTrack>()
             val jobId = UUID.randomUUID()
-            val job = worker.launch { searchJob(jobId, iterator, query, root) }
+            val job = worker.launch { searchJob(jobId, iterator, query, root, refreshCache) }
             jobs.put(jobId, job)
             return AsyncIterator(iterator)
         }
@@ -64,7 +68,8 @@ class FilesystemStreamingService(
             id: UUID,
             output: SendChannel<MusicTrack>,
             query: String,
-            root: String
+            root: String,
+            refreshCache: Boolean
         ) {
             output.useOutput {
                 val rootEntry = File(root)
@@ -75,10 +80,16 @@ class FilesystemStreamingService(
                 for (entry in rootEntry.walkTopDown()) {
                     yield()
 
-                    val track = LOG.try_({ "Entry $entry interpretation failed" }) {
+                    val track = LOG.try_({ "Entry $entry retrieval failed" }) {
                         if (entry.isFile()) {
                             val path = entry.getAbsolutePath()
-                            cache.get(path) ?: (entry.asMusicTrack()?.also { cache.set(path, it) })
+                            val retrieveEntry = {
+                                entry.asMusicTrack()?.also { cache.set(path, it) }
+                            }
+                            if (refreshCache)
+                                retrieveEntry()
+                            else
+                                cache.get(path) ?: retrieveEntry()
                         } else {
                             null
                         }
@@ -127,7 +138,9 @@ class FilesystemStreamingService(
     private suspend fun backgroundSearchJob(root: String) {
         LOG.info("Starting background search")
 
-        searcher.search("", root).use { iterator -> for (ignore in iterator) {} }
+        searcher.search("", root, refreshCache = true).use {
+            iterator -> for (ignore in iterator) {}
+        }
 
         LOG.info("Background search finished")
     }
