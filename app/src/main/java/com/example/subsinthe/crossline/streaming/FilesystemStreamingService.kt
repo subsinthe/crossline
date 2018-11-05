@@ -1,6 +1,7 @@
 package com.example.subsinthe.crossline.streaming
 
 import com.example.subsinthe.crossline.util.AsyncIterator
+import com.example.subsinthe.crossline.util.IObservable
 import com.example.subsinthe.crossline.util.ObservableValue
 import com.example.subsinthe.crossline.util.TimedLruCache
 import com.example.subsinthe.crossline.util.createScope
@@ -27,7 +28,7 @@ import java.util.concurrent.Executors
 
 class FilesystemStreamingService(
     private val scope: CoroutineScope,
-    settings: Settings,
+    root: IObservable<String>,
     cacheSize: Int,
     private val cacheLifespan: Long
 ) : IStreamingService {
@@ -36,7 +37,7 @@ class FilesystemStreamingService(
     private val workerScope = worker.createScope()
     private val searcher = Searcher(workerScope, scope, cacheSize, cacheLifespan)
     private var backgroundSearch: Job? = null
-    private val rootConnection = settings.root.subscribe { onRootChanged(it) }
+    private val rootConnection = root.subscribe { onRootChanged(it) }
 
     private class Searcher(
         private val worker: CoroutineScope,

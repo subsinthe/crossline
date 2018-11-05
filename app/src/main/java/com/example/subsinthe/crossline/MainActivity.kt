@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
         AndroidLoggingHandler.reset(AndroidLoggingHandler())
 
         setContentView(R.layout.main_activity)
-        Application.initialize(permissionListener)
+        Application.initialize(getApplicationContext(), permissionListener)
 
         val navigationView = findViewById<NavigationView>(R.id.navigation_view)
         navigationView.setNavigationItemSelectedListener { onNavigationItemSelected(it) }
