@@ -33,18 +33,13 @@ class SettingsActivity : AppCompatActivity() {
             addPreferencesFromResource(R.xml.filesystem_settings)
 
             val activity = getActivity() as SettingsActivity
-            val config = Application.config.filesystem
 
             val rootEdit = findPreference("root_edit") as EditTextPreference
-            rootEdit.setText(config.root.value)
-            rootEdit.setOnPreferenceChangeListener { _, newValue ->
-                val newRoot = newValue!!.toString()
-                val isValid = try { File(newRoot).exists() } catch (ex: Throwable) { false }
-                if (isValid)
-                    config.root.value = newRoot
-                else
-                    activity.toast("$newRoot does not exist. Please choose valid path")
-                isValid
+            rootEdit.registerProperty(Application.config.filesystem.root) {
+                try { File(it).exists() } catch (ex: Throwable) { false }.also { valid ->
+                    if (!valid)
+                        activity.toast("$it does not exist. Please choose valid path")
+                }
             }
         }
     }
