@@ -1,8 +1,8 @@
 package com.example.subsinthe.crossline.util
 
-interface IObservableSet<T> : IObservable<SetOp<T>> {
-    val size: Int
+import kotlin.collections.MutableSet
+import kotlin.collections.Set
 
-    fun add(value: T): Boolean
-    fun clear()
-}
+interface IObservableSet<T> : IObservable<SetOp<T>>, Set<T>
+
+interface IMutableObservableSet<T> : IObservableSet<T>, MutableSet<T>

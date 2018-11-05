@@ -1,8 +1,8 @@
 package com.example.subsinthe.crossline.util
 
-interface IObservableList<T> : IObservable<MappingOp<Int, T>> {
-    val size: Int
+import kotlin.collections.List
+import kotlin.collections.MutableList
 
-    fun add(value: T)
-    fun clear()
-}
+interface IObservableList<T> : IObservable<MappingOp<Int, T>>, List<T>
+
+interface IMutableObservableList<T> : IObservableList<T>, MutableList<T>
