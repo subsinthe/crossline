@@ -2,21 +2,21 @@ package com.example.subsinthe.crossline
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.example.subsinthe.crossline.util.IObservableValue
+import com.example.subsinthe.crossline.util.IMutableObservableValue
 import com.example.subsinthe.crossline.util.ObservableValue
 import com.example.subsinthe.crossline.util.Token
 
 open class ConfigSection(context: Context, val _key: String) {
     val _storage = context.getSharedPreferences(_key, Context.MODE_PRIVATE)
 
-    inline fun <reified T> pref(key: String, defaultValue: T): IObservableValue<T> =
+    inline fun <reified T> pref(key: String, defaultValue: T): IMutableObservableValue<T> =
         Preference.build(_storage, "$_key.$key", defaultValue)
 }
 
 @PublishedApi internal class Preference<T>(
     private val _impl: ObservableValue<T>,
     private val connection: Token
-) : IObservableValue<T> {
+) : IMutableObservableValue<T> {
     override var value
         get() = _impl.value
         set(value: T) { _impl.value = value }
