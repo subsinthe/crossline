@@ -79,14 +79,14 @@ class SettingsActivity : AppCompatActivity() {
         super.onBackPressed()
     }
 
-    fun pushFragment(fragment: Fragment, title: String) {
+    private fun pushFragment(fragment: Fragment, title: String) {
         supportFragmentManager.pushFragment(R.id.content_frame, fragment, title)
         actionBar.setTitle(title)
     }
 
-    fun tryPopFragment() = supportFragmentManager.tryPopFragment().let { title ->
+    private fun tryPopFragment() = supportFragmentManager.tryPopFragment().let { title ->
         title?.also { actionBar.setTitle(title) }.let { it != null }
     }
 
-    fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 }
