@@ -1,6 +1,7 @@
 package com.example.subsinthe.crossline
 
 import android.support.v7.widget.SearchView
+import android.view.View
 import com.example.subsinthe.crossline.streaming.IStreamingService
 import com.example.subsinthe.crossline.streaming.MusicTrack
 import com.example.subsinthe.crossline.util.IObservable
@@ -16,11 +17,12 @@ import java.io.Closeable
 class SearchQueryListener(
     streamingService_: IObservable<IStreamingService>,
     private val scope: CoroutineScope,
+    private val parent: View,
     private val searchResults: MutableCollection<MusicTrack>,
     private val searchMore: ReceiveChannel<Unit>,
     private val loadBatchSize: Int,
-    private val searchDelayOnQueryChange: Int
-) : SearchView.OnQueryTextListener, Closeable {
+    private val delayOnQueryChange: Int
+) : SearchView.OnQueryTextListener, View.OnAttachStateChangeListener, Closeable {
     private val _isSearchActive = ObservableValue<Boolean>(false)
     private lateinit var streamingService: IStreamingService
     private var searchJobHandle: Job? = null
@@ -35,7 +37,17 @@ class SearchQueryListener(
 
     override fun onQueryTextSubmit(query: String): Boolean {
         search(query, doDelay = false)
+
+        parent.clearFocus()
+
         return true
+    }
+
+    override fun onViewAttachedToWindow(@Suppress("UNUSED_PARAMETER") v: View) = Unit
+
+    override fun onViewDetachedFromWindow(@Suppress("UNUSED_PARAMETER") v: View) {
+        searchJobHandle?.cancel()
+        searchResults.clear()
     }
 
     override fun close() {
@@ -59,7 +71,7 @@ class SearchQueryListener(
 
         searchJobHandle = scope.launch {
             if (doDelay)
-                delay(searchDelayOnQueryChange)
+                delay(delayOnQueryChange)
             searchJob(query)
         }
     }

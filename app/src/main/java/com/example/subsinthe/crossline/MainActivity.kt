@@ -61,21 +61,22 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         getMenuInflater().inflate(R.menu.main, menu)
 
+        val searchResultsView = findViewById<RecyclerView>(R.id.search_results)
+        val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
+
         val layoutManager = LinearLayoutManager(this)
         val searchResults = ObservableArrayList<MusicTrack>()
         val searchMoreListener = LoadMoreScrollListener(layoutManager)
         val searchQueryListener = SearchQueryListener(
             Application.streamingService,
             Application.uiScope,
+            searchView,
             searchResults,
             searchMoreListener.channel,
-            loadBatchSize = 10,
-            searchDelayOnQueryChange = 1500
+            loadBatchSize = Application.config.ui.searchLoadBatchSize,
+            delayOnQueryChange = Application.config.ui.searchDelayOnQueryChange
         )
         val searchModel = SearchModel(searchResults, searchQueryListener.isSearchActive)
-
-        val searchResultsView = findViewById<RecyclerView>(R.id.search_results)
-        val searchView = menu.findItem(R.id.action_search).getActionView() as SearchView
 
         tokens += Token(searchModel)
         tokens += Token(searchQueryListener)
@@ -85,6 +86,7 @@ class MainActivity : AppCompatActivity() {
         searchResultsView.addOnScrollListener(searchMoreListener)
 
         searchView.setOnQueryTextListener(searchQueryListener)
+        searchView.addOnAttachStateChangeListener(searchQueryListener)
 
         return true
     }
