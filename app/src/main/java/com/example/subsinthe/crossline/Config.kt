@@ -10,7 +10,7 @@ class Config(context: Context) {
 
 class UiConfig(context: Context) : ConfigSection(context, "filesystem") {
     val searchLoadBatchSize = 10
-    val searchDelayOnQueryChange = 1500
+    val searchDelayOnQueryChange = 1000
 }
 
 class FilesystemConfig(context: Context) : ConfigSection(context, "filesystem") {
