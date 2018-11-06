@@ -26,6 +26,7 @@ class SearchQueryListener(
     private val _isSearchActive = ObservableValue<Boolean>(false)
     private lateinit var streamingService: IStreamingService
     private var searchJobHandle: Job? = null
+    private var currentQuery: String? = null
     private val connection = streamingService_.subscribe { onStreamingServiceChanged(it) }
 
     val isSearchActive: IObservable<Boolean> = _isSearchActive
@@ -47,6 +48,7 @@ class SearchQueryListener(
 
     override fun onViewDetachedFromWindow(@Suppress("UNUSED_PARAMETER") v: View) {
         searchJobHandle?.cancel()
+        currentQuery = null
         searchResults.clear()
     }
 
@@ -57,16 +59,18 @@ class SearchQueryListener(
 
     private fun onStreamingServiceChanged(streamingService_: IStreamingService) {
         searchJobHandle?.cancel()
+        currentQuery = null
         searchResults.clear()
 
         streamingService = streamingService_
     }
 
     private fun search(query: String, doDelay: Boolean) {
-        if (query.isEmpty())
+        if (query.isEmpty() || query == currentQuery)
             return
 
         searchJobHandle?.cancel()
+        currentQuery = null
         searchResults.clear()
 
         searchJobHandle = scope.launch {
@@ -74,6 +78,7 @@ class SearchQueryListener(
                 delay(delayOnQueryChange)
             searchJob(query)
         }
+        currentQuery = query
     }
 
     private suspend fun searchJob(query: String) {
