@@ -17,6 +17,7 @@ import java.io.Closeable
 class SearchQueryListener(
     streamingService_: IObservable<IStreamingService>,
     private val scope: CoroutineScope,
+    private val parent: View,
     private val searchResults: MutableCollection<MusicTrack>,
     private val searchMore: ReceiveChannel<Unit>,
     private val loadBatchSize: Int,
@@ -36,7 +37,10 @@ class SearchQueryListener(
 
     override fun onQueryTextSubmit(query: String): Boolean {
         search(query, doDelay = false)
-        return false
+
+        parent.clearFocus()
+
+        return true
     }
 
     override fun onViewAttachedToWindow(@Suppress("UNUSED_PARAMETER") v: View) = Unit
