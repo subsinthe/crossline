@@ -46,11 +46,7 @@ class SearchQueryListener(
 
     override fun onViewAttachedToWindow(@Suppress("UNUSED_PARAMETER") v: View) = Unit
 
-    override fun onViewDetachedFromWindow(@Suppress("UNUSED_PARAMETER") v: View) {
-        searchJobHandle?.cancel()
-        currentQuery = null
-        searchResults.clear()
-    }
+    override fun onViewDetachedFromWindow(@Suppress("UNUSED_PARAMETER") v: View) = cancelSearch()
 
     override fun close() {
         connection.close()
@@ -58,9 +54,7 @@ class SearchQueryListener(
     }
 
     private fun onStreamingServiceChanged(streamingService_: IStreamingService) {
-        searchJobHandle?.cancel()
-        currentQuery = null
-        searchResults.clear()
+        cancelSearch()
 
         streamingService = streamingService_
     }
@@ -69,9 +63,7 @@ class SearchQueryListener(
         if (query.isEmpty() || query == currentQuery)
             return
 
-        searchJobHandle?.cancel()
-        currentQuery = null
-        searchResults.clear()
+        cancelSearch()
 
         searchJobHandle = scope.launch {
             if (doDelay)
@@ -94,5 +86,11 @@ class SearchQueryListener(
         } finally {
             _isSearchActive.value = false
         }
+    }
+
+    private fun cancelSearch() {
+        searchJobHandle?.cancel()
+        currentQuery = null
+        searchResults.clear()
     }
 }
